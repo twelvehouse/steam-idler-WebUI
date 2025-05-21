@@ -20,7 +20,6 @@ const fs     = require("fs");
 const https  = require("https");
 const logger = require("output-logger");
 const express = require("express"); // Added express
-const axios = require("axios"); // Added axios
 const path = require("path"); // Added path
 
 const config = require("../config.json");
@@ -183,8 +182,13 @@ module.exports.start = async () => {
 
     app.use(express.json()); // Middleware to parse JSON bodies
 
-    app.get("/", (req, res) => {
-        res.send("Dashboard backend is running!");
+    app.use(express.static(path.join(__dirname, 'dashboard/dist')));
+
+    // app.get("/", (req, res) => {
+    //     res.send("Dashboard backend is running!");
+    // });
+    app.get("api/ping", (req, res) => {
+        res.json({ message: "pong" });
     });
 
     app.get("/api/status", (req, res) => {

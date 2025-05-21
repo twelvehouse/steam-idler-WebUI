@@ -5,7 +5,6 @@
     "main": "idler.js",
     "dependencies": {
         "@seald-io/nedb": "^4.0.4",
-        "axios": "^1.9.0",
         "express": "^5.1.0",
         "output-logger": "^2.3.7",
         "qrcode": "^1.5.4",
