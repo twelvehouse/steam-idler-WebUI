@@ -191,7 +191,7 @@ module.exports.start = async () => {
     // app.get("/", (req, res) => {
     //     res.send("Dashboard backend is running!");
     // });
-    app.get("api/ping", (req, res) => {
+    app.get("/api/ping", (req, res) => {
         res.json({ message: "pong" });
     });
 
