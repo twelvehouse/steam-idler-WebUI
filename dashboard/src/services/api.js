@@ -38,23 +38,19 @@ apiClient.interceptors.response.use(
   }
 );
 
-export default {
-  getStatus() {
-    return apiClient.get('/status');
+const api = {
+  getAccounts() {
+    return axios.get('/api/accounts');
   },
-  getLogs() {
-    return apiClient.get('/logs', { responseType: 'text' }); // Expect plain text for logs
+  getStatus() {
+    return axios.get('/api/status');
   },
   getOwnedGames(accountName) {
-    return apiClient.get(`/steam/owned_games?accountName=${accountName}`);
+    return axios.get('/api/steam/owned_games', { params: { accountName } });
   },
-  getCardDrops(accountName) {
-    return apiClient.get(`/steam/card_drops?accountName=${accountName}`);
-  },
-  getGamesConfig() {
-    return apiClient.get('/config/games');
-  },
-  updateGamesConfig(newConfigPayload) { // newConfigPayload should be like { playingGames: [...] }
-    return apiClient.post('/config/games', newConfigPayload);
-  },
+  getLogs() {
+    return axios.get('/api/logs');
+  }
 };
+
+export default api;

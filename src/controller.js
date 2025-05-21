@@ -375,6 +375,21 @@ module.exports.start = async () => {
         });
     });
 
+    // アカウント一覧API
+    app.get("/api/accounts", (req, res) => {
+        // accounts.txtからアカウント名一覧を返す
+        if (fs.existsSync("./accounts.txt")) {
+            let data = fs.readFileSync("./accounts.txt", "utf8").split("\n");
+            if (data.length > 0 && data[0].startsWith("//Comment")) data = data.slice(1);
+            const accounts = data
+                .map(line => line.split(":")[0])
+                .filter(name => name && name.length > 0);
+            res.json(accounts);
+        } else {
+            res.status(404).json({ message: "accounts.txt not found." });
+        }
+    });
+
     app.listen(dashboardPort, () => {
         logger("info", `Dashboard server listening on port ${dashboardPort}`);
     });
