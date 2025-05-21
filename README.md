@@ -26,10 +26,39 @@ Please continue reading to learn how to set this bot up.
 &nbsp;
 
 ## 🚀 Install
-Make sure to have [node.js](https://nodejs.org/) installed.  
-Download this repository as `.zip`, extract the folder and open a Terminal/Power Shell/Console in the folder.  
+## 🚀 Install
 
-Type `npm install` to install all dependencies.  
+Make sure to have [Node.js](https://nodejs.org/) installed.
+
+1. Download this repository as a `.zip` and extract it, or clone it using Git:
+
+    ```bash
+    git clone https://github.com/twelvehouse/steam-idler.git
+    cd steam-idler
+    ```
+
+2. Open a Terminal / PowerShell / Console in the folder.
+
+3. Install all dependencies (this also installs frontend dependencies automatically):
+
+    ```bash
+    npm install
+    ```
+
+4. Build the web dashboard:
+
+    ```bash
+    npm run build
+    ```
+
+5. Start the bot:
+
+    ```bash
+    npm start
+    ```
+
+The dashboard will be available at `http://localhost:3000`  
+(or the port defined in your `config.json`).
 
 &nbsp;
 
