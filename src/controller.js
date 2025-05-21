@@ -19,6 +19,8 @@
 const fs     = require("fs");
 const https  = require("https");
 const logger = require("output-logger");
+const express = require("express"); // Added express
+const axios = require("axios"); // Added axios
 
 const config = require("../config.json");
 
@@ -173,6 +175,323 @@ module.exports.start = async () => {
 
     // Start creating a bot object for each account
     logger("", "", true);
+
+    // Setup Express Dashboard
+    const dashboardPort = config.dashboardPort || 3000;
+    const app = express();
+
+    app.use(express.json()); // Middleware to parse JSON bodies
+
+    app.get("/", (req, res) => {
+        res.send("Dashboard backend is running!");
+    });
+
+    app.get("/api/status", (req, res) => {
+        const botsStatus = allBots.map(bot => {
+            return {
+                accountName: bot.logOnOptions ? bot.logOnOptions.accountName : null,
+                playedAppIDs: bot.playedAppIDs || [],
+                startedPlayingTimestamp: bot.startedPlayingTimestamp || null,
+                proxy: bot.proxy || null,
+                isBotRunning: !!(bot.client && bot.client.steamID) // Ensure boolean
+            };
+        });
+        res.json(botsStatus);
+    });
+
+    app.get("/api/logs", (req, res) => {
+        fs.readFile("./output.txt", "utf8", (err, data) => {
+            if (err) {
+                logger("error", `Error reading output.txt for /api/logs: ${err.message}`);
+                res.status(500).send("Error reading log file.");
+                return;
+            }
+            res.set("Content-Type", "text/plain");
+            res.send(data);
+        });
+    });
+
+    app.get("/api/steam/owned_games", async (req, res) => {
+        const { accountName } = req.query;
+
+        if (!accountName) {
+            return res.status(400).json({ message: "accountName query parameter is required." });
+        }
+
+        // API Key check removed for this endpoint
+
+        const bot = allBots.find(b => b.logOnOptions && b.logOnOptions.accountName === accountName);
+
+        if (!bot) {
+            return res.status(404).json({ message: `Bot with accountName '${accountName}' not found.` });
+        }
+
+        if (!bot.client || !bot.client.steamID) {
+            return res.status(409).json({ message: `Bot '${accountName}' is not currently active or connected to Steam.` });
+        }
+
+        // Using bot.client.getUserOwnedApps from steam-user
+        bot.client.getUserOwnedApps(bot.client.steamID, { includeAppInfo: true, includePlayedFreeGames: true }, (err, response) => {
+            if (err) {
+                logger("error", `/api/steam/owned_games: Error from getUserOwnedApps for ${accountName} (SteamID: ${bot.client.steamID}): ${err.message || err}`);
+                // EResult codes can be found here: https://github.com/DoctorMcKay/node-steam-user/blob/master/enums/EResult.js
+                // Example: EResult.AccessDenied (5) might indicate a private profile
+                let statusCode = 500;
+                let message = `Error retrieving owned games for '${accountName}'.`;
+                if (err.eresult === 5) { // AccessDenied
+                    statusCode = 403;
+                    message = `Could not retrieve game list for '${accountName}'. The Steam profile might be private. (EResult: ${err.eresult})`;
+                } else if (err.eresult) {
+                     message = `Error retrieving owned games for '${accountName}'. (EResult: ${err.eresult})`;
+                } else {
+                    message = `Error retrieving owned games for '${accountName}': ${err.message || 'Unknown error from Steam.'}`;
+                }
+                return res.status(statusCode).json({ message });
+            }
+
+            if (response && response.apps) {
+                const ownedGames = response.apps.map(game => ({
+                    appid: game.appid,
+                    name: game.name,
+                    playtime_forever: game.playtime_forever,
+                    img_icon_url: game.img_icon_url ? `http://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg` : null
+                }));
+                res.json(ownedGames);
+            } else {
+                logger("warn", `/api/steam/owned_games: Unexpected response structure from getUserOwnedApps for ${accountName}. SteamID: ${bot.client.steamID}. Response: ${JSON.stringify(response)}`);
+                res.status(500).json({ message: "Failed to retrieve owned games due to unexpected response format from Steam." });
+            }
+        });
+    });
+
+    app.get("/api/steam/card_drops", async (req, res) => {
+        const { accountName } = req.query;
+
+        if (!accountName) {
+            return res.status(400).json({ message: "accountName query parameter is required." });
+        }
+
+        // API Key check removed
+        const bot = allBots.find(b => b.logOnOptions && b.logOnOptions.accountName === accountName);
+
+        if (!bot) {
+            return res.status(404).json({ message: `Bot with accountName '${accountName}' not found.` });
+        }
+
+        if (!bot.client || !bot.client.steamID) {
+            return res.status(409).json({ message: `Bot '${accountName}' is not currently active or connected to Steam.` });
+        }
+
+        if (!bot.webSessionCookies || bot.webSessionCookies.length === 0) {
+            logger("warn", `/api/steam/card_drops: Web session cookies not yet available for bot '${accountName}'.`);
+            return res.status(503).json({ message: "Web session not yet available for this bot, please try again shortly." });
+        }
+
+        const steamId = bot.client.steamID;
+        const cookieString = bot.webSessionCookies.join('; ');
+
+        try {
+            // Using web session cookies instead of API key
+            const apiUrl = `https://api.steampowered.com/IPlayerService/GetBadges/v1/?steamid=${steamId}&format=json`; // No 'key' parameter
+            const apiResponse = await axios.get(apiUrl, {
+                headers: {
+                    'Cookie': cookieString
+                }
+            });
+
+            if (apiResponse.data && apiResponse.data.response && apiResponse.data.response.badges) {
+                const badges = apiResponse.data.response.badges;
+                const cardDropGames = badges.filter(badge => {
+                    // Check for appid, as some badges (like community badge) don't have one
+                    if (!badge.appid) {
+                        return false;
+                    }
+                    // Direct indicator: remaining_playtime_seconds (seems this is not reliably provided for unplayed games)
+                    // Steam returns playtime_2weeks instead of remaining_playtime_seconds for games not yet played enough
+                    // The GetBadges API is tricky for card drops.
+                    // A common heuristic: if a game badge exists (it has an appid) and its level is 0, it *might* have drops.
+                    // Or if `remaining_playtime_seconds` is explicitly provided and > 0.
+                    // However, `remaining_playtime_seconds` is often NOT in the GetBadges response for games that haven't been played enough to generate any cards yet.
+                    // Instead, we check if the badge level is less than 5 (max standard badge level) and it's not a foil badge (border_color != 1).
+                    // And crucially, the badge must be "incomplete", which often means `border_color == 0` (grey border for uncrafted/incomplete badges).
+                    // This heuristic isn't perfect but is commonly used.
+                    // A game has potential card drops if:
+                    // 1. It has an appid.
+                    // 2. It's not a foil badge (badge.border_color !== 1, or not defined which implies not foil).
+                    // 3. Its level is less than 5 (max for normal badges).
+                    // 4. It appears to be an "active" game badge for card drops, which often means it's not yet fully crafted.
+                    //    The `completion_time` field is only set when a badge level is completed.
+                    //    If `completion_time` is 0 or undefined for level 1, it means level 1 isn't crafted.
+                    //    If `level` is 0, it definitely hasn't been crafted.
+                    //    If `level > 0` but `level < 5`, and `border_color == 0`, it implies it's partially crafted but more cards can be obtained for the next level.
+
+                    // Focusing on a simpler interpretation for now:
+                    // If a game badge (has appid) exists and level < 5, and it's not a foil (border_color != 1),
+                    // it's a candidate. The API doesn't directly say "X drops remaining" in a universally reliable way here.
+                    // `remaining_playtime_seconds` is often missing or 0 even if drops are available.
+                    const isFoil = badge.border_color === 1;
+                    return badge.appid && !isFoil && badge.level < 5;
+
+                }).map(badge => ({
+                    appid: badge.appid,
+                    level: badge.level,
+                    // Note: `remaining_playtime_seconds` is often not present or 0 in GetBadges response
+                    // until you start playing. So, we can't reliably use it here to indicate if *any* drops are left for unplayed games.
+                    // We are implying `has_card_drops = true` by its inclusion in this list based on level and non-foil status.
+                    has_card_drops: true, // Implicitly true due to filter logic
+                    scarcity: badge.scarcity // Rarity of the badge (might be useful)
+                }));
+
+                res.json(cardDropGames);
+            } else {
+                logger("warn", `/api/steam/card_drops: Unexpected response structure from Steam API for ${accountName}. SteamID: ${steamId}. Data: ${JSON.stringify(apiResponse.data)}`);
+                 if (apiResponse.data && apiResponse.data.response && Object.keys(apiResponse.data.response).length === 0) {
+                    // This can happen if the user has no badges or the profile is private in a way that affects badge visibility
+                    return res.status(200).json([]); // Return empty array, as it's a valid response (no badges with drops)
+                }
+                return res.status(500).json({ message: "Failed to retrieve card drop info due to unexpected API response format." });
+            }
+        } catch (error) {
+            logger("error", `/api/steam/card_drops: Error fetching card drop info for ${accountName} (SteamID: ${steamId}): ${error.message}`);
+            if (error.response) {
+                logger("error", `Steam API Error Data: ${JSON.stringify(error.response.data)}`);
+                logger("error", `Steam API Error Status: ${error.response.status}`);
+                let statusCode = error.response.status || 500;
+                let message = `Error fetching card drop info from Steam API for '${accountName}'.`;
+
+                if (statusCode === 401 || statusCode === 403) { // Unauthorized or Forbidden
+                    message = `Could not retrieve card drop info for '${accountName}'. Cookies might be invalid, expired, or profile is private. (HTTP ${statusCode})`;
+                    logger("warn", `/api/steam/card_drops: Cookie authentication failed for ${accountName} (HTTP ${statusCode}). Cookies might need refresh.`);
+                     // Optionally, try to invalidate or clear bot.webSessionCookies here to force a new webSession event if helpful
+                } else {
+                    message = `Steam API returned HTTP ${statusCode} for '${accountName}'.`;
+                }
+                return res.status(statusCode).json({ message });
+            } else if (error.request) {
+                logger("error", "No response received from Steam API.");
+                return res.status(504).json({ message: "No response received from Steam API (gateway timeout)." });
+            } else {
+                logger("error", `Axios request setup error: ${error.message}`);
+                return res.status(500).json({ message: "Failed to make request to Steam API." });
+            }
+        }
+    });
+
+    // Endpoint to get current playingGames configuration
+    app.get("/api/config/games", (req, res) => {
+        fs.readFile("../config.json", "utf8", (err, data) => {
+            if (err) {
+                if (err.code === 'ENOENT') {
+                    logger("error", "/api/config/games: config.json not found.");
+                    return res.status(500).json({ message: "Configuration file not found." });
+                }
+                logger("error", `/api/config/games: Error reading config.json: ${err.message}`);
+                return res.status(500).json({ message: "Error reading configuration file." });
+            }
+
+            try {
+                const currentConfig = JSON.parse(data);
+                if (currentConfig && typeof currentConfig.playingGames !== 'undefined') {
+                    res.json({ playingGames: currentConfig.playingGames });
+                } else {
+                    logger("error", "/api/config/games: playingGames property is missing in config.json.");
+                    res.status(500).json({ message: "Invalid configuration format: playingGames missing." });
+                }
+            } catch (parseErr) {
+                logger("error", `/api/config/games: Error parsing config.json: ${parseErr.message}`);
+                res.status(500).json({ message: "Error parsing configuration file." });
+            }
+        });
+    });
+
+    // Endpoint to update playingGames configuration
+    app.post("/api/config/games", (req, res) => {
+        const newPlayingGames = req.body.playingGames;
+
+        // Validate input
+        if (typeof newPlayingGames === 'undefined') {
+            return res.status(400).json({ message: "Missing 'playingGames' in request body." });
+        }
+        if (!Array.isArray(newPlayingGames) && (typeof newPlayingGames !== 'object' || newPlayingGames === null)) {
+            return res.status(400).json({ message: "'playingGames' must be an array or an object." });
+        }
+
+        fs.readFile("../config.json", "utf8", (err, data) => {
+            if (err) {
+                logger("error", `/api/config/games (POST): Error reading config.json: ${err.message}`);
+                return res.status(500).json({ message: "Error reading configuration file before update." });
+            }
+
+            let currentConfig;
+            try {
+                currentConfig = JSON.parse(data);
+            } catch (parseErr) {
+                logger("error", `/api/config/games (POST): Error parsing config.json: ${parseErr.message}`);
+                return res.status(500).json({ message: "Error parsing configuration file before update." });
+            }
+
+            // Update the configuration
+            currentConfig.playingGames = newPlayingGames;
+
+            fs.writeFile("../config.json", JSON.stringify(currentConfig, null, 4), "utf8", (writeErr) => {
+                if (writeErr) {
+                    logger("error", `/api/config/games (POST): Error writing config.json: ${writeErr.message}`);
+                    return res.status(500).json({ message: "Error writing updated configuration file." });
+                }
+
+                logger("info", "Successfully updated playingGames in config.json.");
+
+                // Apply changes to running bots
+                let botsUpdatedCount = 0;
+                allBots.forEach(bot => {
+                    if (bot.client && bot.client.steamID) {
+                        let gamesForThisBot = []; // Default to empty array if not found
+                        
+                        if (Array.isArray(newPlayingGames)) {
+                            gamesForThisBot = newPlayingGames;
+                        } else if (typeof newPlayingGames === 'object' && newPlayingGames !== null) {
+                            // If newPlayingGames is an object, try to find config for specific account
+                            if (bot.logOnOptions && newPlayingGames[bot.logOnOptions.accountName]) {
+                                gamesForThisBot = newPlayingGames[bot.logOnOptions.accountName];
+                                if (!Array.isArray(gamesForThisBot)) {
+                                     logger("warn", `Configuration for bot ${bot.logOnOptions.accountName} in newPlayingGames is not an array. Skipping update for this bot.`);
+                                     return; // Continue to next bot
+                                }
+                            } else {
+                                // Fallback or default behavior if accountName not in newPlayingGames object
+                                // Option 1: Use a 'default' key if it exists in newPlayingGames
+                                // Option 2: Skip this bot if its specific config is not provided
+                                // For now, skipping if specific config not found and it's an object structure
+                                logger("info", `Bot ${bot.logOnOptions.accountName} has no specific game configuration in the new object structure. It will play no games unless a default is set.`);
+                                // gamesForThisBot will remain [] which effectively stops it from idling games if it previously was.
+                                // Or, to keep current games if not specified: gamesForThisBot = bot.playedAppIDs; (but task implies updating with NEW config)
+                            }
+                        }
+
+                        try {
+                            bot.client.gamesPlayed(gamesForThisBot);
+                            bot.playedAppIDs = [...gamesForThisBot]; // Ensure it's a copy
+                            bot.startedPlayingTimestamp = Date.now();
+                            logger("info", `Updated games for bot ${bot.logOnOptions.accountName} to: ${JSON.stringify(gamesForThisBot)}`);
+                            botsUpdatedCount++;
+                        } catch (e) {
+                            logger("error", `Failed to update games for bot ${bot.logOnOptions.accountName}: ${e.message}`);
+                        }
+                    }
+                });
+
+                res.json({ 
+                    message: "Configuration updated successfully.",
+                    botsAttempted: allBots.filter(b => b.client && b.client.steamID).length,
+                    botsSuccessfullyUpdated: botsUpdatedCount 
+                });
+            });
+        });
+    });
+
+    app.listen(dashboardPort, () => {
+        logger("info", `Dashboard server listening on port ${dashboardPort}`);
+    });
 
     Object.values(logininfo).forEach((e, i) => {
         setTimeout(() => {

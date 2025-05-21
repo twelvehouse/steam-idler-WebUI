@@ -42,6 +42,7 @@ const Bot = function(logOnOptions, loginindex, proxies) {
     // Populated by loggedOn event handler, is used by logPlaytime to calculate playtime report for this account
     this.startedPlayingTimestamp = 0;
     this.playedAppIDs = [];
+    this.webSessionCookies = null; // Initialize webSessionCookies
 
     // Create new steam-user bot object. Disable autoRelogin as we have our own queue system
     this.client = new SteamUser({ autoRelogin: false, renewRefreshTokens: true, httpProxy: this.proxy, protocol: SteamUser.EConnectionProtocol.WebSocket }); // Forcing protocol for now: https://dev.doctormckay.com/topic/4187-disconnect-due-to-encryption-error-causes-relog-to-break-error-already-logged-on/?do=findComment&comment=10917
@@ -233,6 +234,12 @@ Bot.prototype.attachEventListeners = function() {
         logger("info", `[${this.logOnOptions.accountName}] SteamUser auto renewed this refresh token, updating database entry...`);
 
         this.session._saveTokenToStorage(newToken);
+    });
+
+    this.client.on("webSession", (sessionID, cookies) => {
+        logger("debug", `[${this.logOnOptions.accountName}] Received web session cookies.`);
+        this.webSessionCookies = cookies;
+        // Optionally, you might want to trigger something here if card_drops were pending this session.
     });
 
 };

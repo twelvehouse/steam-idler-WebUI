@@ -64,47 +64,62 @@ Please note that Steam might block some proxy providers.
 &nbsp;
   
 ## 📝 Config
-Open the `config.json` in a text editor and put the games you wan't to idle inside the `playingGames` brackets.  
+Open the `config.json` in a text editor. This file allows you to configure various aspects of the idler.
 
-You can set a custom game by passing a String as the first argument.  
-The other numbers define the games the script will start playing. You can add more by adding a comma and the app id.  
-The bot will automatically request licenses for free-to-play games which are set here but your accounts do not own yet. This is limited to 50 games per hour.  
+**Key Configuration Options:**
 
-If you want to set specific games for specific accounts, pass an object containing `"accountName": []` for every account as the first argument.  
-Everything that follows will represent the "general" settings, which all accounts will use that are not included in the object.  
-See the 4th example below for a visual representation.
+- **`playingGames`**: Defines the games to idle.
+  - You can set a custom non-Steam game name by passing a String as the first argument (e.g., `"My Custom Game"`).
+  - Add Steam games by their AppID (e.g., `730` for CS:GO).
+  - The bot will automatically attempt to request licenses for free-to-play games listed here if your accounts do not own them (limited to 50 games per hour per account).
+  - **Per-account configuration**: To set specific games for specific accounts, make the first element of the `playingGames` array an object. Each key in this object should be an account name (from `accounts.txt`) and its value an array of games/AppIDs for that account. Any games/AppIDs listed after this object will be used as a general fallback for accounts not specified in the object.
+    - Examples:
+      - Display "In non-Steam game: Minecraft" and idle TF2 & CS:GO globally: `"playingGames": ["Minecraft", 440, 730]`
+      - Display "Currently In-Game: Team Fortress 2" and idle TF2 & CS:GO globally: `"playingGames": [440, 730]`
+      - Only appear as online and don't idle anything globally: `"playingGames": []`
+      - For "myacc1": idle "Specific Game" & CSGO. For "myacc25": idle nothing. For all other accounts: idle "General Game" & TF2:
+        `"playingGames": [{ "myacc1": ["Specific Game", 730], "myacc25": [] }, "General Game", 440]`
+- **`onlinestatus`**: Sets the online status of the bot on Steam (e.g., Online, Away). Use a number from [this list](https://github.com/DoctorMcKay/node-steam-user/blob/master/enums/EPersonaState.js). If set to `null`, the bot will not change the online status.
+- **`afkMessage`**: A message to automatically send in response to received chat messages. Leave empty (`""`) to disable.
+- **`loginDelay`**: Time in milliseconds to wait between logging in multiple accounts.
+- **`relogDelay`**: Time in milliseconds to wait before attempting to relog an account that lost connection.
+- **`useLocalIP`**: Boolean. If `true`, your local IP will be used in the proxy rotation. If `false`, only proxies from `proxies.txt` will be used.
+- **`logPlaytimeToFile`**: Boolean. If `true`, session playtime summaries will be logged to `playtime.txt`.
+- **`dashboardPort`**: The port number for the web dashboard. Defaults to `3000` if not specified. (See Web Dashboard section below).
 
-Examples:  
-- Display "In non-Steam game: Minecraft" and idle TF2 & CS:GO: `"playingGames": ["Minecraft", 440, 730],`  
-- Display "Currently In-Game: Team Fortress 2" and idle TF2 & CS:GO: `"playingGames": [440, 730],`  
-- Only appear as online and don't idle anything: `"playingGames": [],`  
-- Display "Specific Game" game & idle CSGO only for account "myacc1". Idle nothing for account "myacc25". Display "General Game" & idle TF2 for all other accounts: `"playingGames": [{ "myacc1": ["Specific Game", 730], "myacc25": [] }, "General Game", 440],`
-- Idle CS:GO & Dota on "myacc1" and idle Dota on "myacc2". Play TF2 on every other account: `"playingGames". [{ "myacc1": [730, 570], "myacc2": [570] }, 440],`
+**Important Notes on `config.json`:**
+- Ensure your JSON is valid. Missing commas or incorrect structures will cause the script to fail. Refer to the default `config.json` if unsure.
+- The `steamApiKey` field is **no longer required or used**. Steam-related data for features like owned games and card drop info is now fetched using account web sessions. If you have an old `steamApiKey` entry in your `config.json`, it can be safely removed.
 
 You don't have to keep `playingGames` on one line, this is done here for documentation purposes. I recommend spreading the array over multiple lines, especially when setting lots of different games for lots of different accounts.
   
 &nbsp;
-  
-To set a different online status you can choose a number from [this list](https://github.com/DoctorMcKay/node-steam-user/blob/master/enums/EPersonaState.js) and provide it at `onlinestatus`.  
-If set to `null` the bot will not change your online status.  
-  
-To set a message that will be send on a recieved message while idling, set a message as `afkMessage`.  
-Leave the brackets empty (like this: `""`) to not send any message back.  
 
-The loginDelay and relogDelay values control the time waited between logging in multiple accounts and the time waited before a relog is attempted after an account lost connection.  
-I recommend not touching them as they have good defaults to avoid cooldowns, however if you know what you are doing - they are there.  
+## 📊 Web Dashboard
+This application includes a web dashboard for monitoring and managing your idling accounts.
 
-&nbsp;
+**Accessing the Dashboard:**
+- Once `node idler.js` is running, the dashboard is typically accessible at `http://localhost:PORT`.
+- The `PORT` is determined by the `dashboardPort` value in your `config.json` file. If not specified, it defaults to `3000`.
+  For example, if `dashboardPort` is `3000`, you would navigate to `http://localhost:3000` in your web browser.
 
-**Important:**  
-Make sure that you don't forget any commas, the script will otherwise not start and throw a Syntax Error.  
-Take a look at the default `config.json` if you are unsure what you are missing.
+**Features:**
+- **Account Status Overview**: View the status of all configured accounts, including which games they are currently idling (AppIDs and custom names) and how long their current idling session has been active.
+- **Detailed Game Information**: For each account, you can load and view:
+    - A list of owned games, sorted by playtime, along with their icons and total playtime.
+    - Information about games that are eligible for Steam trading card drops, including badge levels.
+- **Log Viewer**: Access and view the application's output logs directly in your browser, with options for manual and auto-refresh.
+- **Real-time Game Configuration**: Manage the `playingGames` configuration dynamically. You can view the current settings and update them (for all accounts or per-account) without restarting the main script. The changes are applied to active bots immediately.
+- **Global Loading & Error Notifications**: The dashboard provides feedback on background operations and API call statuses.
+
+The dashboard is a Vue.js application served by the main Node.js script. No separate build or run commands are needed by the end-user for the dashboard itself, as pre-built files are included and served automatically.
 
 &nbsp;
 
 ## 🚀 Start
 Then just type `node idler.js` to start the script.  
 The script will try to log in and ask you for your Steam Guard code if it needs one. When it is logged in a logged in message will be displayed.  
+The web dashboard will also become available on the configured port (default 3000).
 
 Every time an account loses connection it will print a session summary to a text file "playtime.txt" (will be created automatically).  
 This also applies to when you stop the bot manually. To turn this whole feature off, set `logPlaytimeToFile` in the config to `false`.
