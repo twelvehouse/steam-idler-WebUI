@@ -31,7 +31,7 @@
                 <div class="d-flex align-items-center mb-2">
                   <h5 class="mb-0">Idling Games</h5>
                   <button class="btn btn-sm btn-outline-primary ms-2" @click="toggleEditIdlingGames">
-                    {{ editIdlingGames ? 'Cancel' : 'Edit' }}
+                    {{ editIdlingGames ? 'Done' : 'Edit' }}
                   </button>
                 </div>
                 <ul class="list-group mb-3 theme-list-group">
