@@ -409,7 +409,7 @@ module.exports.start = async () => {
         }
     });
 
-    app.listen(dashboardPort, () => {
+    app.listen(dashboardPort, "0.0.0.0", () => {
         logger("info", `Dashboard server listening on port ${dashboardPort}`);
     });
 
