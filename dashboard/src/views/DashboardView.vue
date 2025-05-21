@@ -27,53 +27,42 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="bot in bots" :key="bot.accountName">
-          <td>{{ bot.accountName }}</td>
-          <td>
-            <span :class="['status-indicator', bot.isBotRunning ? 'running' : 'stopped']">
-              {{ bot.isBotRunning ? 'Running' : 'Stopped' }}
-            </span>
-          </td>
-          <td>{{ bot.playedAppIDs && bot.playedAppIDs.length ? bot.playedAppIDs.join(', ') : 'N/A' }}</td>
-          <td>{{ formatTimeElapsed(bot.startedPlayingTimestamp, bot.isBotRunning) }}</td>
-          <td>{{ bot.proxy || 'N/A' }}</td>
-          <td>
-            <button @click="fetchExtraData(bot)" :disabled="bot.loadingExtraData">
-              {{ bot.loadingExtraData ? 'Loading...' : 'Load Playtime & Cards' }}
-            </button>
-            <button @click="toggleExtraDataVisibility(bot)" v-if="bot.ownedGamesData || bot.cardDropsData || bot.errorExtraData">
-              {{ bot.showExtraData ? 'Hide' : 'Show' }} Details
-            </button>
-          </td>
-        </tr>
-        <tr v-if="bot.showExtraData && (bot.ownedGamesData || bot.cardDropsData || bot.errorExtraData || bot.loadingExtraData)" class="extra-data-row">
-          <td colspan="6">
-            <div v-if="bot.loadingExtraData" class="loading-message">Loading details for {{ bot.accountName }}...</div>
-            <!-- Removed local bot.errorExtraData display, global handler will show messages from backend -->
-            
-            <div v-if="bot.ownedGamesData" class="owned-games-section">
-              <h4>Owned Games ({{ bot.ownedGamesData.length || 0 }})</h4> <!-- Adjusted to use .length as it's an array now -->
-              <ul v-if="bot.ownedGamesData && bot.ownedGamesData.length">
-                <li v-for="game in getTopPlayedGames(bot.ownedGamesData)" :key="game.appid"> <!-- directly pass array -->
-                  <img v-if="game.img_icon_url" :src="game.img_icon_url" :alt="game.name + ' icon'" class="game-icon"/>
-                  {{ game.name }} - {{ formatPlaytime(game.playtime_forever) }}
-                </li>
-              </ul>
-              <p v-else>No game data available or profile might be private.</p>
-            </div>
-
-            <div v-if="bot.cardDropsData" class="card-drops-section">
-              <h4>Games with Card Drops ({{ bot.cardDropsData.length }})</h4>
-              <ul v-if="bot.cardDropsData.length">
-                <li v-for="drop in bot.cardDropsData" :key="drop.appid">
-                  {{ getGameNameById(bot.ownedGamesData, drop.appid) || `AppID: ${drop.appid}` }} - Level: {{ drop.level }}
-                  ({{ drop.has_card_drops ? 'Drops available' : 'No drops/Unknown' }})
-                </li>
-              </ul>
-              <p v-else>No games with card drops found (or data not available).</p>
-            </div>
-          </td>
-        </tr>
+        <template v-for="bot in bots" :key="bot.accountName">
+          <tr>
+            <td>{{ bot.accountName }}</td>
+            <td>
+              <span :class="['status-indicator', bot.isBotRunning ? 'running' : 'stopped']">
+                {{ bot.isBotRunning ? 'Running' : 'Stopped' }}
+              </span>
+            </td>
+            <td>{{ bot.playedAppIDs && bot.playedAppIDs.length ? bot.playedAppIDs.join(', ') : 'N/A' }}</td>
+            <td>{{ formatTimeElapsed(bot.startedPlayingTimestamp, bot.isBotRunning) }}</td>
+            <td>{{ bot.proxy || 'N/A' }}</td>
+            <td>
+              <button @click="fetchExtraData(bot)" :disabled="bot.loadingExtraData">
+                {{ bot.loadingExtraData ? 'Loading...' : 'Load Playtime' }}
+              </button>
+              <button @click="toggleExtraDataVisibility(bot)" v-if="bot.ownedGamesData || bot.errorExtraData">
+                {{ bot.showExtraData ? 'Hide' : 'Show' }} Details
+              </button>
+            </td>
+          </tr>
+          <tr v-if="bot.showExtraData && (bot.ownedGamesData || bot.loadingExtraData || bot.errorExtraData)" class="extra-data-row">
+            <td colspan="6">
+              <div v-if="bot.loadingExtraData" class="loading-message">Loading details for {{ bot.accountName }}...</div>
+              <div v-if="bot.ownedGamesData" class="owned-games-section">
+                <h4>Owned Games ({{ bot.ownedGamesData.length || 0 }})</h4>
+                <ul v-if="bot.ownedGamesData && bot.ownedGamesData.length">
+                  <li v-for="game in getTopPlayedGames(bot.ownedGamesData)" :key="game.appid">
+                    <img v-if="game.img_icon_url" :src="game.img_icon_url" :alt="game.name + ' icon'" class="game-icon"/>
+                    {{ game.name }} - {{ formatPlaytime(game.playtime_forever) }}
+                  </li>
+                </ul>
+                <p v-else>No game data available or profile might be private.</p>
+              </div>
+            </td>
+          </tr>
+        </template>
       </tbody>
     </table>
     <p v-if="!loading.bots && !bots.length && !localErrorBots">No bots found or running.</p> <!-- Check localErrorBots -->
@@ -199,47 +188,24 @@ async function fetchExtraData(bot) {
   if (!bot) return;
 
   bot.loadingExtraData = true;
-  bot.errorExtraData = null; 
-  clearError(); 
+  bot.errorExtraData = null;
+  clearError();
 
   try {
-    const [ownedGamesResponse, cardDropsResponse] = await Promise.allSettled([
-      api.getOwnedGames(bot.accountName),
-      api.getCardDrops(bot.accountName)
-    ]);
+    const ownedGamesResponse = await api.getOwnedGames(bot.accountName);
 
-    let individualErrorMessages = [];
-
-    if (ownedGamesResponse.status === 'fulfilled') {
-      // The API now returns the array of games directly if getUserOwnedApps is used
-      bot.ownedGamesData = ownedGamesResponse.value.data; 
+    if (ownedGamesResponse) {
+      bot.ownedGamesData = ownedGamesResponse.data;
     } else {
-      console.error(`Failed to load owned games for ${bot.accountName}:`, ownedGamesResponse.reason);
-      const errMsg = ownedGamesResponse.reason?.response?.data?.message || ownedGamesResponse.reason?.message || 'Failed to load owned games.';
-      individualErrorMessages.push(`Owned Games: ${errMsg}`);
-      // Removed API Key specific check here
-    }
-
-    if (cardDropsResponse.status === 'fulfilled') {
-      bot.cardDropsData = cardDropsResponse.value.data;
-    } else {
-      console.error(`Failed to load card drops for ${bot.accountName}:`, cardDropsResponse.reason);
-      const errMsg = cardDropsResponse.reason?.response?.data?.message || cardDropsResponse.reason?.message || 'Failed to load card drops.';
-      individualErrorMessages.push(`Card Drops: ${errMsg}`);
-      // Removed API Key specific check here
-    }
-    
-    if (individualErrorMessages.length > 0) {
-        bot.errorExtraData = individualErrorMessages.join(' '); 
-        setError(`Error fetching details for ${bot.accountName}: ${individualErrorMessages[0]} (and possibly others)`, 'error', 7000);
-    } else {
-        setSuccess(`Details loaded for ${bot.accountName}`, 2000);
+      bot.ownedGamesData = null;
+      bot.errorExtraData = 'Failed to load owned games.';
     }
 
     if (!bot.errorExtraData) bot.showExtraData = true;
-    else if (bot.ownedGamesData || bot.cardDropsData) bot.showExtraData = true; 
+    else if (bot.ownedGamesData) bot.showExtraData = true;
 
-  } catch (err) { 
+    setSuccess(`Details loaded for ${bot.accountName}`, 2000);
+  } catch (err) {
     console.error(`Unexpected error fetching extra data for ${bot.accountName}:`, err);
     const message = `Unexpected error fetching details for ${bot.accountName}.`;
     setError(message);
