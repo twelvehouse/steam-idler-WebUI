@@ -2,3 +2,7 @@ node_modules
 steam-idler.code-workspace
 output.txt
 playtime.txt
+/accounts.txt
+/config.json
+accounts.txt
+config.json
