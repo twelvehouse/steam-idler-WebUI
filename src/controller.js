@@ -184,6 +184,10 @@ module.exports.start = async () => {
 
     app.use(express.static(path.join(__dirname, 'dashboard/dist')));
 
+    app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dashboard/dist/index.html'));
+    });
+
     // app.get("/", (req, res) => {
     //     res.send("Dashboard backend is running!");
     // });
