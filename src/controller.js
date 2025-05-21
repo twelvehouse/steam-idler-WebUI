@@ -21,6 +21,7 @@ const https  = require("https");
 const logger = require("output-logger");
 const express = require("express"); // Added express
 const axios = require("axios"); // Added axios
+const path = require("path"); // Added path
 
 const config = require("../config.json");
 
@@ -292,7 +293,7 @@ module.exports.start = async () => {
 
     // Endpoint to update playingGames configuration
     app.post("/api/config/games", (req, res) => {
-        const newPlayingGames = req.body.playingGames;
+        let newPlayingGames = req.body.playingGames;
 
         // Validate input
         if (typeof newPlayingGames === 'undefined') {
@@ -302,7 +303,10 @@ module.exports.start = async () => {
             return res.status(400).json({ message: "'playingGames' must be an array or an object." });
         }
 
-        fs.readFile("./config.json", "utf8", (err, data) => { // ← 修正
+        // config.jsonの絶対パスを取得
+        const configPath = path.resolve(__dirname, "../config.json");
+
+        fs.readFile(configPath, "utf8", (err, data) => {
             if (err) {
                 logger("error", `/api/config/games (POST): Error reading config.json: ${err.message}`);
                 return res.status(500).json({ message: "Error reading configuration file before update." });
@@ -316,47 +320,54 @@ module.exports.start = async () => {
                 return res.status(500).json({ message: "Error parsing configuration file before update." });
             }
 
+            // --- ここから修正 ---
+            // playingGamesが配列なら全アカウントに同じ値をセット
+            if (Array.isArray(newPlayingGames)) {
+                // accounts.txtからアカウント名一覧を取得
+                let accountNames = [];
+                if (fs.existsSync("./accounts.txt")) {
+                    let lines = fs.readFileSync("./accounts.txt", "utf8").split("\n");
+                    if (lines.length > 0 && lines[0].startsWith("//Comment")) lines = lines.slice(1);
+                    accountNames = lines
+                        .map(line => line.split(":")[0])
+                        .filter(name => name && name.length > 0);
+                }
+                const obj = {};
+                accountNames.forEach(acc => { obj[acc] = [...newPlayingGames]; });
+                newPlayingGames = obj;
+            }
+            // --- ここまで修正 ---
+
             // Update the configuration
             currentConfig.playingGames = newPlayingGames;
 
-            fs.writeFile("./config.json", JSON.stringify(currentConfig, null, 4), "utf8", (writeErr) => { // ← 修正
+            fs.writeFile(configPath, JSON.stringify(currentConfig, null, 4), "utf8", (writeErr) => {
                 if (writeErr) {
                     logger("error", `/api/config/games (POST): Error writing config.json: ${writeErr.message}`);
                     return res.status(500).json({ message: "Error writing updated configuration file." });
                 }
 
-                logger("info", "Successfully updated playingGames in config.json.");
+                logger("info", `Successfully wrote config.json at ${configPath}`);
 
                 // Apply changes to running bots
                 let botsUpdatedCount = 0;
                 allBots.forEach(bot => {
                     if (bot.client && bot.client.steamID) {
-                        let gamesForThisBot = []; // Default to empty array if not found
-                        
-                        if (Array.isArray(newPlayingGames)) {
-                            gamesForThisBot = newPlayingGames;
-                        } else if (typeof newPlayingGames === 'object' && newPlayingGames !== null) {
-                            // If newPlayingGames is an object, try to find config for specific account
+                        let gamesForThisBot = [];
+                        if (typeof newPlayingGames === 'object' && newPlayingGames !== null) {
                             if (bot.logOnOptions && newPlayingGames[bot.logOnOptions.accountName]) {
                                 gamesForThisBot = newPlayingGames[bot.logOnOptions.accountName];
                                 if (!Array.isArray(gamesForThisBot)) {
-                                     logger("warn", `Configuration for bot ${bot.logOnOptions.accountName} in newPlayingGames is not an array. Skipping update for this bot.`);
-                                     return; // Continue to next bot
+                                    logger("warn", `Configuration for bot ${bot.logOnOptions.accountName} in newPlayingGames is not an array. Skipping update for this bot.`);
+                                    return;
                                 }
                             } else {
-                                // Fallback or default behavior if accountName not in newPlayingGames object
-                                // Option 1: Use a 'default' key if it exists in newPlayingGames
-                                // Option 2: Skip this bot if its specific config is not provided
-                                // For now, skipping if specific config not found and it's an object structure
                                 logger("info", `Bot ${bot.logOnOptions.accountName} has no specific game configuration in the new object structure. It will play no games unless a default is set.`);
-                                // gamesForThisBot will remain [] which effectively stops it from idling games if it previously was.
-                                // Or, to keep current games if not specified: gamesForThisBot = bot.playedAppIDs; (but task implies updating with NEW config)
                             }
                         }
-
                         try {
                             bot.client.gamesPlayed(gamesForThisBot);
-                            bot.playedAppIDs = [...gamesForThisBot]; // Ensure it's a copy
+                            bot.playedAppIDs = [...gamesForThisBot];
                             bot.startedPlayingTimestamp = Date.now();
                             logger("info", `Updated games for bot ${bot.logOnOptions.accountName} to: ${JSON.stringify(gamesForThisBot)}`);
                             botsUpdatedCount++;
@@ -366,10 +377,10 @@ module.exports.start = async () => {
                     }
                 });
 
-                res.json({ 
+                res.json({
                     message: "Configuration updated successfully.",
                     botsAttempted: allBots.filter(b => b.client && b.client.steamID).length,
-                    botsSuccessfullyUpdated: botsUpdatedCount 
+                    botsSuccessfullyUpdated: botsUpdatedCount
                 });
             });
         });

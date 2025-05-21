@@ -100,17 +100,22 @@ Bot.prototype.attachEventListeners = function() {
 
 
         // Check if user provided games specifically for this account
-        let configGames = config.playingGames;
-
-        if (typeof configGames[0] == "object") {
-            if (Object.keys(configGames[0]).includes(this.logOnOptions.accountName)) configGames = configGames[0][this.logOnOptions.accountName]; // Get the specific settings for this account if included
-                else configGames = configGames.slice(1);                                                                                          // ...otherwise remove object containing acc specific settings to use the generic ones
+        let configGames = null;
+        if (config && config.playingGames) {
+            if (Array.isArray(config.playingGames)) {
+                configGames = config.playingGames;
+            } else if (typeof config.playingGames === 'object' && config.playingGames !== null) {
+                configGames = config.playingGames[this.logOnOptions.accountName];
+            }
+        }
+        if (!Array.isArray(configGames)) {
+            configGames = [];
         }
 
 
         // Shorthander to start playing
         const startPlaying = () => {
-            this.client.gamesPlayed(configGames);
+            this.client.gamesPlayed(configGames); // configGames: [480, "Custom Game Title", ...] のような配列
             this.startedPlayingTimestamp = Date.now();
             this.playedAppIDs = configGames;
         };

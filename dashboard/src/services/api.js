@@ -50,6 +50,13 @@ const api = {
   },
   getLogs() {
     return axios.get('/api/logs');
+  },
+  // 追加: ゲーム構成取得・更新API
+  getGamesConfig() {
+    return axios.get('/api/config/games');
+  },
+  updateGamesConfig(data) {
+    return axios.post('/api/config/games', data);
   }
 };
 
