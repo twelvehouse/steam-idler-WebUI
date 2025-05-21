@@ -254,7 +254,11 @@ module.exports.start = async () => {
                     appid: game.appid,
                     name: game.name,
                     playtime_forever: game.playtime_forever,
-                    img_icon_url: game.img_icon_url ? `http://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg` : null
+                    img_icon_url: (game.img_icon_url
+                        ? (game.img_icon_url.startsWith('http')
+                            ? game.img_icon_url
+                            : `http://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg`)
+                        : null)
                 }));
                 res.json(ownedGames);
             } else {
@@ -266,7 +270,7 @@ module.exports.start = async () => {
 
     // Endpoint to get current playingGames configuration
     app.get("/api/config/games", (req, res) => {
-        fs.readFile("../config.json", "utf8", (err, data) => {
+        fs.readFile("./config.json", "utf8", (err, data) => { // ← 修正
             if (err) {
                 if (err.code === 'ENOENT') {
                     logger("error", "/api/config/games: config.json not found.");
@@ -278,12 +282,7 @@ module.exports.start = async () => {
 
             try {
                 const currentConfig = JSON.parse(data);
-                if (currentConfig && typeof currentConfig.playingGames !== 'undefined') {
-                    res.json({ playingGames: currentConfig.playingGames });
-                } else {
-                    logger("error", "/api/config/games: playingGames property is missing in config.json.");
-                    res.status(500).json({ message: "Invalid configuration format: playingGames missing." });
-                }
+                res.json({ playingGames: typeof currentConfig.playingGames !== 'undefined' ? currentConfig.playingGames : {} });
             } catch (parseErr) {
                 logger("error", `/api/config/games: Error parsing config.json: ${parseErr.message}`);
                 res.status(500).json({ message: "Error parsing configuration file." });
@@ -303,7 +302,7 @@ module.exports.start = async () => {
             return res.status(400).json({ message: "'playingGames' must be an array or an object." });
         }
 
-        fs.readFile("../config.json", "utf8", (err, data) => {
+        fs.readFile("./config.json", "utf8", (err, data) => { // ← 修正
             if (err) {
                 logger("error", `/api/config/games (POST): Error reading config.json: ${err.message}`);
                 return res.status(500).json({ message: "Error reading configuration file before update." });
@@ -320,7 +319,7 @@ module.exports.start = async () => {
             // Update the configuration
             currentConfig.playingGames = newPlayingGames;
 
-            fs.writeFile("../config.json", JSON.stringify(currentConfig, null, 4), "utf8", (writeErr) => {
+            fs.writeFile("./config.json", JSON.stringify(currentConfig, null, 4), "utf8", (writeErr) => { // ← 修正
                 if (writeErr) {
                     logger("error", `/api/config/games (POST): Error writing config.json: ${writeErr.message}`);
                     return res.status(500).json({ message: "Error writing updated configuration file." });
