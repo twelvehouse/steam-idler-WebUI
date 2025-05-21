@@ -380,16 +380,51 @@ const coloredLogs = computed(() => {
   return html;
 });
 
+// スクロールアニメーション用の状態
+let lastScrollHeight = 0;
+
+// ログ取得・アニメーションスクロール
 async function fetchLogs() {
   try {
     const res = await api.getLogs();
+    const prev = logs.value;
     logs.value = res.data;
     await nextTick();
     if (logsContainerRef.value) {
-      logsContainerRef.value.scrollTop = logsContainerRef.value.scrollHeight;
+      const el = logsContainerRef.value;
+      // 新着がある場合のみアニメーション
+      if (logs.value.length > prev.length) {
+        const start = el.scrollTop;
+        const end = el.scrollHeight - el.clientHeight;
+        // すでに一番下なら即座に追従
+        if (Math.abs(end - start) < 4) {
+          el.scrollTop = end;
+        } else if (end > start) {
+          smoothScroll(el, start, end, 600);
+        }
+      }
+      lastScrollHeight = el.scrollHeight;
     }
   } catch {}
 }
+
+// なめらかスクロール
+function smoothScroll(el, from, to, duration) {
+  const startTime = performance.now();
+  function animate(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    el.scrollTop = from + (to - from) * easeInOutQuad(progress);
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    }
+  }
+  requestAnimationFrame(animate);
+}
+function easeInOutQuad(t) {
+  return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+}
+
 let logInterval = null;
 function startLogAutoRefresh() {
   fetchLogs();
