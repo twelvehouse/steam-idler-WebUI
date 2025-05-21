@@ -18,7 +18,9 @@
         "eslint-plugin-jsdoc": "^50.4.3"
     },
     "scripts": {
-        "start": "node idler.js"
+        "start": "node idler.js",
+        "build": "npm --prefix ./src/dashboard run build",
+        "postinstall": "npm --prefix ./src/dashboard install"
     },
     "author": "3urobeat",
     "license": "GPL-3.0",
