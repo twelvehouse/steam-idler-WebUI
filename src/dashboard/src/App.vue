@@ -84,25 +84,14 @@
             <div class="card-body d-flex flex-column min-vh-0" style="min-height:0;">
               <h5 class="card-title">Owned Games Playtime (Top 10)</h5>
               <div class="chart-area d-flex flex-row flex-wrap flex-md-nowrap align-items-stretch" style="height:100%;min-height:220px;">
-                <div class="chart-legend-area d-none d-md-flex flex-column justify-content-center pe-3" style="min-width:160px;">
-                  <ul v-if="pieChartLabels.length" class="list-unstyled mb-0">
-                    <li v-for="(label, idx) in pieChartLabels" :key="label" class="d-flex align-items-center mb-2">
-                      <span class="legend-color-dot me-2" :style="{background: pieChartColors[idx % pieChartColors.length]}"></span>
-                      <span class="legend-label-text">{{ label }}</span>
-                    </li>
-                  </ul>
-                </div>
                 <div class="chart-bg p-3 rounded d-flex justify-content-center align-items-center flex-grow-1" style="height:100%;">
-                  <canvas ref="pieChartRef" class="responsive-pie-chart"></canvas>
+                  <apexchart
+                    type="bar"
+                    height="380"
+                    :options="barChartOptions"
+                    :series="barChartSeries"
+                  ></apexchart>
                 </div>
-              </div>
-              <div class="d-md-none mt-3">
-                <ul v-if="pieChartLabels.length" class="list-unstyled mb-0 d-flex flex-wrap justify-content-center">
-                  <li v-for="(label, idx) in pieChartLabels" :key="label" class="d-flex align-items-center me-3 mb-2">
-                    <span class="legend-color-dot me-2" :style="{background: pieChartColors[idx % pieChartColors.length]}"></span>
-                    <span class="legend-label-text">{{ label }}</span>
-                  </li>
-                </ul>
               </div>
             </div>
           </div>
@@ -196,7 +185,6 @@
 import { ref, computed, onMounted, watch, nextTick, onUnmounted } from 'vue';
 import { useAccountStore } from '@/stores/accountStore';
 import api from '@/services/api';
-import Chart from 'chart.js/auto';
 
 const accountStore = useAccountStore();
 const accounts = computed(() => accountStore.accounts.map(acc => ({ value: acc, text: acc })));
@@ -207,9 +195,7 @@ const selectedAccount = computed({
 const bots = ref([]);
 const ownedGames = ref([]);
 const logs = ref('');
-const pieChartRef = ref(null);
 const logsContainerRef = ref(null);
-let pieChartInstance = null;
 
 const gameSearch = ref('');
 const editIdlingGames = ref(false);
@@ -313,13 +299,10 @@ async function removeIdlingGame(appid) {
 }
 
 // チャート再描画をEditボタンで抑制
-let chartDrawnForAccount = ref('');
 function toggleEditIdlingGames() {
   editIdlingGames.value = !editIdlingGames.value;
   if (editIdlingGames.value) {
     fetchOwnedGames();
-    // チャート再描画を抑制
-    chartDrawnForAccount.value = selectedAccount.value;
   }
 }
 
@@ -330,21 +313,9 @@ async function fetchOwnedGames() {
     const res = await api.getOwnedGames(selectedAccount.value);
     ownedGames.value = Array.isArray(res.data) ? res.data : [];
     await nextTick();
-    // チャート再描画はEdit時以外のみ
-    if (!editIdlingGames.value || chartDrawnForAccount.value !== selectedAccount.value) {
-      drawPieChart();
-      chartDrawnForAccount.value = '';
-    }
   } catch (err) {
     // 409エラーやその他のエラー時はownedGamesを空にしてチャートもクリア
     ownedGames.value = [];
-    pieChartLabels.value = [];
-    if (pieChartInstance) {
-      pieChartInstance.destroy();
-      pieChartInstance = null;
-    }
-    // 必要ならエラー内容をログ出力
-    // console.warn('fetchOwnedGames error:', err);
   }
 }
 
@@ -432,60 +403,97 @@ function startLogAutoRefresh() {
   logInterval = setInterval(fetchLogs, 5000);
 }
 
-// チャートラベル・カラーをreactiveで保持
-const pieChartLabels = ref([]);
-const pieChartColors = [
-  '#42b983', '#36a2eb', '#ff6384', '#ffcd56', '#4bc0c0',
-  '#9966ff', '#ff9f40', '#c9cbcf', '#e7e9ed', '#b2dfdb'
-];
-
-// チャートのサイズを1.5倍にし、ラベルも取得
-function drawPieChart() {
-  if (!pieChartRef.value) return;
-  if (pieChartInstance) {
-    pieChartInstance.destroy();
-    pieChartInstance = null;
-  }
-  const parent = pieChartRef.value.parentElement;
-  let size = 300;
-  if (parent) {
-    const parentRect = parent.getBoundingClientRect();
-    size = Math.max(180, Math.min(parentRect.width, parentRect.height || 999, 480));
-  }
-  pieChartRef.value.width = size;
-  pieChartRef.value.height = size;
-
+// バーチャート用データとオプション
+const barChartSeries = computed(() => {
+  // 上位10件のゲームを取得
   const topGames = [...ownedGames.value]
     .sort((a, b) => b.playtime_forever - a.playtime_forever)
     .slice(0, 10);
-  pieChartLabels.value = topGames.map(g => g.name);
-  if (topGames.length === 0) return;
-  const ctx = pieChartRef.value.getContext('2d');
-  pieChartInstance = new Chart(ctx, {
-    type: 'pie',
-    data: {
-      labels: pieChartLabels.value,
-      datasets: [{
-        data: topGames.map(g => g.playtime_forever),
-        backgroundColor: pieChartColors
-      }]
+  return [{
+    data: topGames.map(g => g.playtime_forever)
+  }];
+});
+
+const barChartOptions = computed(() => {
+  const topGames = [...ownedGames.value]
+    .sort((a, b) => b.playtime_forever - a.playtime_forever)
+    .slice(0, 10);
+  return {
+    chart: {
+      type: 'bar',
+      height: 380,
+      toolbar: { show: false }
     },
-    options: {
-      responsive: false,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          display: false // Bootstrap側でラベル表示するので非表示
+    plotOptions: {
+      bar: {
+        barHeight: '100%',
+        distributed: true,
+        horizontal: true,
+        dataLabels: {
+          position: 'bottom'
+        },
+      }
+    },
+    colors: [
+      '#33b2df', '#546E7A', '#d4526e', '#13d8aa', '#A5978B',
+      '#2b908f', '#f9a3a4', '#90ee7e', '#f48024', '#69d2e7'
+    ],
+    dataLabels: {
+      enabled: true,
+      textAnchor: 'start',
+      style: {
+        colors: ['#fff']
+      },
+      formatter: function (val, opt) {
+        return (topGames[opt.dataPointIndex]?.name || '') + ":  " + val;
+      },
+      offsetX: 0,
+      dropShadow: {
+        enabled: true
+      }
+    },
+    stroke: {
+      width: 1,
+      colors: ['#fff']
+    },
+    xaxis: {
+      categories: topGames.map(g => g.name),
+      labels: {
+        style: {
+          colors: '#888'
+        }
+      }
+    },
+    yaxis: {
+      labels: {
+        show: false
+      }
+    },
+    title: {
+      text: 'Custom DataLabels',
+      align: 'center',
+      floating: true
+    },
+    subtitle: {
+      text: 'Category Names as DataLabels inside bars',
+      align: 'center',
+    },
+    tooltip: {
+      theme: 'dark',
+      x: {
+        show: false
+      },
+      y: {
+        title: {
+          formatter: function () {
+            return ''
+          }
         }
       }
     }
-  });
-}
+  };
+});
 
-// ウィンドウリサイズ時にもチャートをリサイズ
-function handleResize() {
-  drawPieChart();
-}
 watch(selectedAccount, async () => {
   await fetchBots();
   await fetchOwnedGames();
@@ -569,42 +577,6 @@ main.container-fluid {
   height: 100%;
   min-width: 0;
   overflow: hidden;
-}
-.responsive-pie-chart {
-  display: block;
-  max-width: 100%;
-  max-height: 480px;
-  width: 100%;
-  height: auto;
-}
-.chart-legend-area {
-  min-width: 160px;
-  max-width: 220px;
-  word-break: break-all;
-}
-.legend-color-dot {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 1px solid #888;
-  flex-shrink: 0;
-}
-.legend-label-text {
-  font-size: 0.98em;
-  word-break: break-all;
-}
-@media (max-width: 991.98px) {
-  .row.g-4 {
-    flex-wrap: wrap;
-    overflow: visible;
-  }
-  .chart-area {
-    flex-direction: column !important;
-  }
-  .chart-legend-area {
-    display: none !important;
-  }
 }
 .logs-footer {
   background: var(--bs-body-bg, #f8f9fa);
