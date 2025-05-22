@@ -18,7 +18,6 @@
     <main class="container-fluid flex-grow-1 d-flex flex-column py-4 transition-bg main-area">
       <div v-if="currentBot" class="row g-4 flex-grow-1 min-vh-0 main-row">
         <div class="col-md-5 d-flex flex-column min-vh-0 card-col">
-          <!-- ゲーム一覧カード -->
           <div class="card shadow-sm theme-card flex-grow-1 d-flex flex-column card-full">
             <div class="card-body d-flex flex-column card-body-full">
               <h2 class="card-title">{{ currentBot.accountName }}</h2>
@@ -28,7 +27,7 @@
                 </span>
                 <span v-if="currentBot.proxy" class="text-muted small">Proxy: {{ currentBot.proxy }}</span>
               </div>
-              <div v-if="currentBot.playedAppIDs && currentBot.playedAppIDs.length">
+              <div v-if="currentBot.playedAppIDs?.length">
                 <div class="d-flex align-items-center mb-2">
                   <h5 class="mb-0">Idling Games</h5>
                   <button class="btn btn-sm btn-outline-primary ms-2" @click="toggleEditIdlingGames">
@@ -37,39 +36,22 @@
                 </div>
                 <ul class="list-group mb-3 theme-list-group">
                   <li v-for="appid in currentBot.playedAppIDs" :key="appid" class="list-group-item d-flex align-items-center">
-                    <img
-                      v-if="getGameIcon(appid)"
-                      :src="getGameIcon(appid)"
-                      :alt="getGameName(appid) + ' icon'"
-                      class="game-icon me-2"
-                    />
+                    <img v-if="getGameIcon(appid)" :src="getGameIcon(appid)" :alt="getGameName(appid) + ' icon'" class="game-icon me-2" />
                     <span>{{ getGameName(appid) || 'AppID: ' + appid }}</span>
                     <span class="text-muted ms-2 small">(AppID: {{ appid }})</span>
-                    <button
-                      v-if="editIdlingGames"
-                      class="btn btn-sm btn-danger ms-auto"
-                      @click="removeIdlingGame(appid)"
-                    >✕</button>
+                    <button v-if="editIdlingGames" class="btn btn-sm btn-danger ms-auto" @click="removeIdlingGame(appid)">✕</button>
                   </li>
                 </ul>
               </div>
               <div v-if="editIdlingGames" class="mb-3">
                 <h6>Add Game to Idle</h6>
-                <input
-                  type="text"
-                  v-model="gameSearch"
-                  placeholder="Search owned games by name..."
-                  class="form-control mb-2"
-                />
+                <input type="text" v-model="gameSearch" placeholder="Search owned games by name..." class="form-control mb-2" />
                 <ul class="list-group theme-list-group" style="max-height:200px;overflow-y:auto;">
-                  <li
-                    v-for="game in filteredOwnedGames"
-                    :key="game.appid"
-                    @click="addIdlingGame(game.appid)"
-                    class="list-group-item d-flex align-items-center"
-                    :class="{ 'disabled text-muted': isIdling(game.appid) }"
-                    style="cursor:pointer;"
-                  >
+                  <li v-for="game in filteredOwnedGames" :key="game.appid"
+                      @click="addIdlingGame(game.appid)"
+                      class="list-group-item d-flex align-items-center"
+                      :class="{ 'disabled text-muted': isIdling(game.appid) }"
+                      style="cursor:pointer;">
                     <img v-if="game.img_icon_url" :src="game.img_icon_url" :alt="game.name + ' icon'" class="game-icon me-2" />
                     <span>{{ game.name }}</span>
                     <span class="text-muted ms-2 small">(AppID: {{ game.appid }})</span>
@@ -81,7 +63,6 @@
           </div>
         </div>
         <div class="col-md-7 d-flex flex-column min-vh-0 card-col">
-          <!-- チャートカード -->
           <div class="card shadow-sm theme-card flex-grow-1 d-flex flex-column card-full">
             <div class="card-body d-flex flex-column card-body-full">
               <h5 class="card-title">Owned Games Playtime (Top 10)</h5>
@@ -107,11 +88,9 @@
         </div>
       </div>
     </main>
-
     <footer class="logs-footer py-3 px-4 flex-shrink-0 transition-bg transition-color">
       <pre class="logs-container-terminal" ref="logsContainerRef" v-html="coloredLogs"></pre>
     </footer>
-
     <!-- テーマ設定のフローティングメニュー -->
     <div class="dropdown position-fixed bottom-0 end-0 mb-3 me-3 bd-mode-toggle theme-float-menu" style="z-index: 1050;">
       <button class="btn btn-bd-primary py-2 dropdown-toggle d-flex align-items-center"
@@ -194,7 +173,7 @@ const accountStore = useAccountStore();
 const accounts = computed(() => accountStore.accounts.map(acc => ({ value: acc, text: acc })));
 const selectedAccount = computed({
   get: () => accountStore.selectedAccount,
-  set: (val) => accountStore.setSelectedAccount(val)
+  set: val => accountStore.setSelectedAccount(val)
 });
 const bots = ref([]);
 const ownedGames = ref([]);
@@ -206,50 +185,35 @@ const editIdlingGames = ref(false);
 
 // テーマ状態
 const theme = ref(getInitialTheme());
-const isDark = computed(() => {
-  // Vueのリアクティブな値として監視
-  if (theme.value === 'auto') {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  }
-  return theme.value === 'dark';
-});
+const isDark = computed(() =>
+  theme.value === 'auto'
+    ? window.matchMedia('(prefers-color-scheme: dark)').matches
+    : theme.value === 'dark'
+);
 
 function getInitialTheme() {
   const stored = localStorage.getItem('theme');
-  if (stored === 'light' || stored === 'dark' || stored === 'auto') return stored;
-  return 'auto';
+  return ['light', 'dark', 'auto'].includes(stored) ? stored : 'auto';
 }
-const themeIconHref = computed(() => {
-  if (theme.value === 'light') return '#sun-fill';
-  if (theme.value === 'dark') return '#moon-stars-fill';
-  // auto
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? '#moon-stars-fill' : '#sun-fill';
-});
+const themeIconHref = computed(() =>
+  theme.value === 'light' ? '#sun-fill'
+    : theme.value === 'dark' ? '#moon-stars-fill'
+    : window.matchMedia('(prefers-color-scheme: dark)').matches ? '#moon-stars-fill' : '#sun-fill'
+);
 function setTheme(val) {
   theme.value = val;
   localStorage.setItem('theme', val);
   applyTheme();
 }
-function getPreferredTheme() {
-  const stored = localStorage.getItem('theme');
-  if (stored === 'light' || stored === 'dark' || stored === 'auto') return stored;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
 function applyTheme() {
   let t = theme.value;
-  if (t === 'auto') {
-    t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
+  if (t === 'auto') t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   document.documentElement.setAttribute('data-bs-theme', t);
-  // ページ全体の背景色もBootstrapのbody色に合わせて変更
-  const bsBg = getComputedStyle(document.body).getPropertyValue('--bs-body-bg');
-  document.body.style.backgroundColor = bsBg || '';
+  document.body.style.backgroundColor = getComputedStyle(document.body).getPropertyValue('--bs-body-bg') || '';
   document.body.style.transition = 'background-color 0.3s, color 0.3s';
 }
 function handleMediaChange() {
-  if (theme.value === 'auto') {
-    applyTheme();
-  }
+  if (theme.value === 'auto') applyTheme();
 }
 onMounted(() => {
   applyTheme();
@@ -258,73 +222,65 @@ onMounted(() => {
 watch(theme, applyTheme);
 onUnmounted(() => {
   window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', handleMediaChange);
+
 });
 
-const currentBot = computed(() => {
-  if (!selectedAccount.value) return null;
-  return bots.value.find(b => b.accountName === selectedAccount.value) || null;
-});
+const currentBot = computed(() =>
+  selectedAccount.value
+    ? bots.value.find(b => b.accountName === selectedAccount.value) || null
+    : null
+);
 
-function getGameName(appid) {
-  const game = ownedGames.value.find(g => g.appid === appid);
-  return game ? game.name : null;
-}
-function getGameIcon(appid) {
-  const game = ownedGames.value.find(g => g.appid === appid);
-  return game && game.img_icon_url ? game.img_icon_url : null;
-}
+const getGameName = appid => ownedGames.value.find(g => g.appid === appid)?.name || null;
+const getGameIcon = appid => ownedGames.value.find(g => g.appid === appid)?.img_icon_url || null;
 
 const filteredOwnedGames = computed(() => {
   if (!gameSearch.value) return ownedGames.value;
   const q = gameSearch.value.toLowerCase();
-  return ownedGames.value.filter(g => g.name && g.name.toLowerCase().includes(q));
+  return ownedGames.value.filter(g => g.name?.toLowerCase().includes(q));
 });
 
-function isIdling(appid) {
-  return currentBot.value && currentBot.value.playedAppIDs && currentBot.value.playedAppIDs.includes(appid);
-}
+const isIdling = appid =>
+  currentBot.value?.playedAppIDs?.includes(appid);
 
 async function addIdlingGame(appid) {
   if (!currentBot.value || isIdling(appid)) return;
-  const configRes = await api.getGamesConfig();
-  let playingGames = configRes.data.playingGames;
-  if (typeof playingGames !== 'object' || playingGames === null) playingGames = {};
-  if (!Array.isArray(playingGames[selectedAccount.value])) playingGames[selectedAccount.value] = [];
-  if (!playingGames[selectedAccount.value].includes(appid)) {
-    playingGames[selectedAccount.value].push(appid);
-    await api.updateGamesConfig({ playingGames });
-    await fetchBots();
-  }
+  try {
+    const configRes = await api.getGamesConfig();
+    let playingGames = configRes.data.playingGames || {};
+    if (!Array.isArray(playingGames[selectedAccount.value])) playingGames[selectedAccount.value] = [];
+    if (!playingGames[selectedAccount.value].includes(appid)) {
+      playingGames[selectedAccount.value].push(appid);
+      await api.updateGamesConfig({ playingGames });
+      await fetchBots();
+    }
+  } catch {}
 }
 
 async function removeIdlingGame(appid) {
   if (!currentBot.value) return;
-  const configRes = await api.getGamesConfig();
-  let playingGames = configRes.data.playingGames;
-  if (typeof playingGames !== 'object' || playingGames === null) playingGames = {};
-  if (!Array.isArray(playingGames[selectedAccount.value])) playingGames[selectedAccount.value] = [];
-  playingGames[selectedAccount.value] = playingGames[selectedAccount.value].filter(id => id !== appid);
-  await api.updateGamesConfig({ playingGames });
-  await fetchBots();
+  try {
+    const configRes = await api.getGamesConfig();
+    let playingGames = configRes.data.playingGames || {};
+    if (!Array.isArray(playingGames[selectedAccount.value])) playingGames[selectedAccount.value] = [];
+    playingGames[selectedAccount.value] = playingGames[selectedAccount.value].filter(id => id !== appid);
+    await api.updateGamesConfig({ playingGames });
+    await fetchBots();
+  } catch {}
 }
 
-// チャート再描画をEditボタンで抑制
 function toggleEditIdlingGames() {
   editIdlingGames.value = !editIdlingGames.value;
-  if (editIdlingGames.value) {
-    fetchOwnedGames();
-  }
+  if (editIdlingGames.value) fetchOwnedGames();
 }
 
-// fetchOwnedGamesで409エラー時も例外を握りつぶしてVue警告やUncaughtを出さないように
 async function fetchOwnedGames() {
   if (!selectedAccount.value) return;
   try {
     const res = await api.getOwnedGames(selectedAccount.value);
     ownedGames.value = Array.isArray(res.data) ? res.data : [];
     await nextTick();
-  } catch (err) {
-    // 409エラーやその他のエラー時はownedGamesを空にしてチャートもクリア
+  } catch {
     ownedGames.value = [];
   }
 }
@@ -335,16 +291,18 @@ function onAccountChange(e) {
 }
 
 async function fetchAccountsAndBots() {
-  const res = await api.getAccounts();
-  accountStore.setAccounts(res.data);
-  if (res.data.length > 0 && !selectedAccount.value) {
-    selectedAccount.value = res.data[0];
-  }
-  await fetchBots();
+  try {
+    const res = await api.getAccounts();
+    accountStore.setAccounts(res.data);
+    if (res.data.length > 0 && !selectedAccount.value) selectedAccount.value = res.data[0];
+    await fetchBots();
+  } catch {}
 }
 async function fetchBots() {
-  const res = await api.getStatus();
-  bots.value = res.data;
+  try {
+    const res = await api.getStatus();
+    bots.value = res.data;
+  } catch {}
 }
 
 const coloredLogs = computed(() => {
@@ -361,10 +319,6 @@ const coloredLogs = computed(() => {
   return html;
 });
 
-// スクロールアニメーション用の状態
-let lastScrollHeight = 0;
-
-// ログ取得・アニメーションスクロール
 async function fetchLogs() {
   try {
     const res = await api.getLogs();
@@ -373,37 +327,24 @@ async function fetchLogs() {
     await nextTick();
     if (logsContainerRef.value) {
       const el = logsContainerRef.value;
-      // 新着がある場合のみアニメーション
       if (logs.value.length > prev.length) {
         const start = el.scrollTop;
         const end = el.scrollHeight - el.clientHeight;
-        // すでに一番下なら即座に追従
-        if (Math.abs(end - start) < 4) {
-          el.scrollTop = end;
-        } else if (end > start) {
-          smoothScroll(el, start, end, 600);
-        }
+        if (Math.abs(end - start) < 4) el.scrollTop = end;
+        else if (end > start) smoothScroll(el, start, end, 600);
       }
-      lastScrollHeight = el.scrollHeight;
     }
   } catch {}
 }
-
-// なめらかスクロール
 function smoothScroll(el, from, to, duration) {
   const startTime = performance.now();
   function animate(now) {
     const elapsed = now - startTime;
     const progress = Math.min(elapsed / duration, 1);
-    el.scrollTop = from + (to - from) * easeInOutQuad(progress);
-    if (progress < 1) {
-      requestAnimationFrame(animate);
-    }
+    el.scrollTop = from + (to - from) * (progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress);
+    if (progress < 1) requestAnimationFrame(animate);
   }
   requestAnimationFrame(animate);
-}
-function easeInOutQuad(t) {
-  return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 }
 
 let logInterval = null;
@@ -413,28 +354,17 @@ function startLogAutoRefresh() {
   logInterval = setInterval(fetchLogs, 5000);
 }
 
-// バーチャート用データとオプション
+// チャート用データ
 const barChartSeries = computed(() => {
-  // 上位10件のゲームを取得
-  const topGames = [...ownedGames.value]
-    .sort((a, b) => b.playtime_forever - a.playtime_forever)
-    .slice(0, 10);
-  return [{
-    data: topGames.map(g => g.playtime_forever)
-  }];
+  const topGames = [...ownedGames.value].sort((a, b) => b.playtime_forever - a.playtime_forever).slice(0, 10);
+  return [{ data: topGames.map(g => g.playtime_forever) }];
 });
-
 const barChartOptions = computed(() => {
-  const topGames = [...ownedGames.value]
-    .sort((a, b) => b.playtime_forever - a.playtime_forever)
-    .slice(0, 10);
-
-  // テーマに応じた色
+  const topGames = [...ownedGames.value].sort((a, b) => b.playtime_forever - a.playtime_forever).slice(0, 10);
   const dark = isDark.value;
   const labelColor = dark ? '#f8f9fa' : '#212529';
   const gridColor = dark ? '#444' : '#e9ecef';
   const chartBg = dark ? '#222' : '#fff';
-
   return {
     chart: {
       type: 'bar',
@@ -447,23 +377,16 @@ const barChartOptions = computed(() => {
       fontFamily: 'inherit',
       parentHeightOffset: 0
     },
-    theme: {
-      mode: dark ? 'dark' : 'light'
-    },
+    theme: { mode: dark ? 'dark' : 'light' },
     plotOptions: {
       bar: {
         barHeight: '80%',
-        barWidth: '90%', // 横棒グラフの幅を最大化するためbarWidthを追加
         distributed: true,
         horizontal: true,
-        dataLabels: {
-          position: 'bottom'
-        },
+        dataLabels: { position: 'bottom' }
       }
     },
-    legend: {
-      show: false
-    },
+    legend: { show: false },
     colors: [
       '#33b2df', '#546E7A', '#d4526e', '#13d8aa', '#A5978B',
       '#2b908f', '#f9a3a4', '#90ee7e', '#f48024', '#69d2e7'
@@ -471,71 +394,32 @@ const barChartOptions = computed(() => {
     dataLabels: {
       enabled: true,
       textAnchor: 'start',
-      style: {
-        colors: [labelColor]
-      },
-      formatter: function (val, opt) {
-        const hours = (val / 60).toFixed(1);
-        return (topGames[opt.dataPointIndex]?.name || '') + ":  " + hours + "h";
-      },
+      style: { colors: [labelColor] },
+      formatter: (val, opt) => (topGames[opt.dataPointIndex]?.name || '') + ":  " + (val / 60).toFixed(1) + "h",
       offsetX: 0,
-      dropShadow: {
-        enabled: true,
-        color: dark ? '#000' : '#fff'
-      }
+      dropShadow: { enabled: true, color: dark ? '#000' : '#fff' }
     },
-    stroke: {
-      width: 1,
-      colors: [chartBg]
-    },
+    stroke: { width: 1, colors: [chartBg] },
     grid: {
       borderColor: gridColor,
       xaxis: { lines: { show: false } },
       yaxis: { lines: { show: false } },
-      padding: {
-        left: 0,
-        right: 0,
-        top: 0,
-        bottom: 0
-      }
+      padding: { left: 0, right: 0, top: 0, bottom: 0 }
     },
     xaxis: {
       categories: topGames.map(g => g.name),
-      labels: {
-        style: {
-          colors: Array(topGames.length).fill(labelColor)
-        }
-      }
+      labels: { style: { colors: Array(topGames.length).fill(labelColor) } }
     },
-    yaxis: {
-      labels: {
-        show: false
-      }
-    },
+    yaxis: { labels: { show: false } },
     tooltip: {
       theme: dark ? 'dark' : 'light',
-      x: {
-        show: false
-      },
+      x: { show: false },
       y: {
-        title: {
-          formatter: function () {
-            return ''
-          }
-        },
-        formatter: function (val) {
-          return (val / 60).toFixed(1) + "h";
-        }
+        title: { formatter: () => '' },
+        formatter: val => (val / 60).toFixed(1) + "h"
       }
     }
   };
-});
-
-// テーマ変更時にApexChartsの再描画を促す
-watch(theme, () => {
-  // ApexChartsはoptionsが変われば自動で再描画される
-  // ただし、data-bs-theme属性の変更は即時反映されるようnextTickで強制再計算
-  nextTick(() => {});
 });
 
 watch(selectedAccount, async () => {
