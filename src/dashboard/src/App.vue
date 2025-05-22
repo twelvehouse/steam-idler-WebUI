@@ -110,13 +110,11 @@
                     <span class="drag-handle me-2" title="Drag to reorder" style="cursor:grab;">☰</span>
                     <span class="game-icon-wrapper me-2">
                       <img
-                        v-if="getGameIcon(element)"
                         :src="getGameIcon(element)"
                         :alt="getGameName(element) + ' icon'"
                         class="game-icon"
                         style="width:28px;height:28px;"
                       />
-                      <span v-else class="game-icon-dummy"></span>
                     </span>
                     <span>{{ getGameName(element) || 'AppID: ' + element }}</span>
                     <span class="text-muted ms-2 small">(AppID: {{ element }})</span>
@@ -139,7 +137,7 @@
                   title="Add custom game"
                 >
                   <div class="game-desktop-icon-img">
-                    <div class="custom-game-placeholder">+</div>
+                    <img :src="dummyIcon" alt="dummy icon" />
                   </div>
                   <div class="game-desktop-title">{{ truncateTitle(gameSearch.trim()) }}</div>
                 </div>
@@ -153,8 +151,7 @@
                   :title="isIdling(game.appid) ? 'Already Idling' : game.name"
                 >
                   <div class="game-desktop-icon-img">
-                    <img v-if="game.img_icon_url" :src="game.img_icon_url" :alt="game.name + ' icon'" />
-                    <span v-else class="game-icon-dummy"></span>
+                    <img :src="game.img_icon_url || dummyIcon" :alt="game.name + ' icon'" />
                   </div>
                   <div class="game-desktop-title">{{ truncateTitle(game.name) }}</div>
                 </div>
@@ -246,6 +243,8 @@ import { ref, computed, onMounted, watch, nextTick, onUnmounted } from 'vue';
 import { useAccountStore } from '@/stores/accountStore';
 import api from '@/services/api';
 import draggable from 'vuedraggable';
+// 追加: ダミーアイコン画像のimport
+import dummyIcon from '@/assets/dummy-icon.png';
 
 const accountStore = useAccountStore();
 const accounts = computed(() => accountStore.accounts.map(acc => ({ value: acc, text: acc })));
@@ -319,7 +318,13 @@ const currentBot = computed(() =>
 );
 
 const getGameName = appid => ownedGames.value.find(g => g.appid === appid)?.name || null;
-const getGameIcon = appid => ownedGames.value.find(g => g.appid === appid)?.img_icon_url || null;
+
+// ゲームアイコン取得（なければダミー画像）
+const getGameIcon = appid => {
+  const found = ownedGames.value.find(g => g.appid === appid);
+  if (found && found.img_icon_url) return found.img_icon_url;
+  return dummyIcon;
+};
 
 const filteredOwnedGames = computed(() => {
   if (!gameSearch.value) return ownedGames.value;
