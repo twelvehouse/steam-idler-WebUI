@@ -86,11 +86,12 @@
             <div class="card-body d-flex flex-column card-body-full">
               <h5 class="card-title">Owned Games Playtime (Top 10)</h5>
               <div class="chart-area flex-grow-1 d-flex align-items-stretch justify-content-center">
-                <div class="chart-bg flex-grow-1 d-flex justify-content-center align-items-center">
+                <div class="chart-bg flex-grow-1 d-flex justify-content-center align-items-center chart-bg-full">
                   <apexchart
                     type="bar"
-                    height="100%"
-                    width="100%"
+                    :height="null"
+                    :width="null"
+                    style="width: 100%; height: 100%; min-height: 0; min-width: 0; display: block;"
                     :options="barChartOptions"
                     :series="barChartSeries"
                   ></apexchart>
@@ -641,7 +642,8 @@ nav.navbar {
   max-width: 100%;
   height: 100%;
 }
-.chart-bg {
+.chart-bg,
+.chart-bg-full {
   background: var(--bs-card-bg, #fff);
   transition: background 0.2s;
   display: flex;
@@ -658,6 +660,15 @@ nav.navbar {
   width: 100%;
   max-width: 100%;
 }
+.chart-bg-full {
+  /* 追加: カード内で横幅・高さともに最大化 */
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  flex: 1 1 0 !important;
+  align-items: stretch !important;
+}
 .apexcharts-canvas {
   position: relative !important;
   height: 100% !important;
@@ -671,7 +682,8 @@ nav.navbar {
   aspect-ratio: unset !important;
   display: block !important;
 }
-[data-bs-theme="dark"] .chart-bg {
+[data-bs-theme="dark"] .chart-bg,
+[data-bs-theme="dark"] .chart-bg-full {
   background: #222 !important;
 }
 [data-bs-theme="dark"] .apexcharts-canvas {
