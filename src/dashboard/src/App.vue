@@ -365,6 +365,8 @@ const barChartOptions = computed(() => {
   const labelColor = dark ? '#f8f9fa' : '#212529';
   const gridColor = dark ? '#444' : '#e9ecef';
   const chartBg = dark ? '#222' : '#fff';
+
+  // ApexChartsの標準ツールチップはHTMLカスタム（画像埋め込み）に対応しています
   return {
     chart: {
       type: 'bar',
@@ -413,10 +415,25 @@ const barChartOptions = computed(() => {
     yaxis: { labels: { show: false } },
     tooltip: {
       theme: dark ? 'dark' : 'light',
-      x: { show: false },
-      y: {
-        title: { formatter: () => '' },
-        formatter: val => (val / 60).toFixed(1) + "h"
+      custom: function({ series, seriesIndex, dataPointIndex, w }) {
+        const game = topGames[dataPointIndex];
+        if (!game) return '';
+        // アイコン画像優先、なければバナー画像
+        const img =
+          game.img_icon_url
+            ? `<img src="${game.img_icon_url}" alt="${game.name}" style="width:32px;height:32px;vertical-align:middle;margin-right:8px;border-radius:4px;">`
+            : game.img_logo_url
+              ? `<img src="${game.img_logo_url}" alt="${game.name}" style="width:64px;height:32px;vertical-align:middle;margin-right:8px;border-radius:4px;">`
+              : '';
+        const hours = (game.playtime_forever / 60).toFixed(1);
+        return `<div style="display:flex;align-items:center;gap:8px;">
+          ${img}
+          <div>
+            <div style="font-weight:bold;">${game.name}</div>
+            <div style="font-size:0.95em;">${hours}h</div>
+            <div style="color:#888;font-size:0.85em;">AppID: ${game.appid}</div>
+          </div>
+        </div>`;
       }
     }
   };
