@@ -495,15 +495,21 @@ const barChartOptions = computed(() => {
   };
 });
 
-// カスタムゲーム追加
-function addCustomGame() {
+// カスタムゲーム追加（直接アイドルゲームリストに追加、config.jsonにも反映）
+async function addCustomGame() {
   const name = customGameName.value.trim();
-  if (!name) return;
-  if (!customGames.value.includes(name)) {
-    customGames.value.push(name);
+  if (!name || isIdling(name)) return;
+  try {
+    const configRes = await api.getGamesConfig();
+    let playingGames = configRes.data.playingGames || {};
+    if (!Array.isArray(playingGames[selectedAccount.value])) playingGames[selectedAccount.value] = [];
+    playingGames[selectedAccount.value].push(name);
+    await api.updateGamesConfig({ playingGames });
+    await fetchBots();
     customGameName.value = '';
-  }
+  } catch {}
 }
+
 // カスタムゲーム削除
 function removeCustomGame(idx) {
   customGames.value.splice(idx, 1);
