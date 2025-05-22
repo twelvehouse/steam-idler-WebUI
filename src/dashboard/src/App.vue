@@ -205,6 +205,14 @@ const editIdlingGames = ref(false);
 
 // テーマ状態
 const theme = ref(getInitialTheme());
+const isDark = computed(() => {
+  // Vueのリアクティブな値として監視
+  if (theme.value === 'auto') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+  return theme.value === 'dark';
+});
+
 function getInitialTheme() {
   const stored = localStorage.getItem('theme');
   if (stored === 'light' || stored === 'dark' || stored === 'auto') return stored;
@@ -421,22 +429,24 @@ const barChartOptions = computed(() => {
     .slice(0, 10);
 
   // テーマに応じた色
-  const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
-  const labelColor = isDark ? '#f8f9fa' : '#212529';
-  const gridColor = isDark ? '#444' : '#e9ecef';
-  const chartBg = isDark ? '#222' : '#fff';
+  const dark = isDark.value;
+  const labelColor = dark ? '#f8f9fa' : '#212529';
+  const gridColor = dark ? '#444' : '#e9ecef';
+  const chartBg = dark ? '#222' : '#fff';
 
   return {
     chart: {
       type: 'bar',
       height: '100%',
+      width: '100%',
       toolbar: { show: false },
       background: chartBg,
       foreColor: labelColor,
       animations: { enabled: false },
+      fontFamily: 'inherit'
     },
     theme: {
-      mode: isDark ? 'dark' : 'light'
+      mode: dark ? 'dark' : 'light'
     },
     plotOptions: {
       bar: {
@@ -468,7 +478,7 @@ const barChartOptions = computed(() => {
       offsetX: 0,
       dropShadow: {
         enabled: true,
-        color: isDark ? '#000' : '#fff'
+        color: dark ? '#000' : '#fff'
       }
     },
     stroke: {
@@ -494,7 +504,7 @@ const barChartOptions = computed(() => {
       }
     },
     tooltip: {
-      theme: isDark ? 'dark' : 'light',
+      theme: dark ? 'dark' : 'light',
       x: {
         show: false
       },
@@ -585,10 +595,11 @@ nav.navbar {
   max-width: 100%;
 }
 .col-md-7.card-col {
-  /* 修正: チャートカードの横幅が親を超えないように */
   max-width: 100%;
   flex-basis: 0;
   flex-grow: 1;
+  /* 横幅いっぱいに広げる */
+  width: 100%;
 }
 .card-full {
   flex: 1 1 0;
@@ -597,8 +608,8 @@ nav.navbar {
   display: flex;
   flex-direction: column;
   margin-bottom: 0;
-  /* 修正: 横幅制限 */
   max-width: 100%;
+  width: 100%;
 }
 .card-body-full {
   flex: 1 1 0;
@@ -607,6 +618,7 @@ nav.navbar {
   display: flex;
   flex-direction: column;
   padding: 1.25rem 1.25rem 1.25rem 1.25rem;
+  width: 100%;
 }
 .chart-area {
   flex: 1 1 0;
@@ -648,11 +660,11 @@ nav.navbar {
   z-index: 1;
   max-width: 100% !important;
 }
-.card-title {
-  margin-bottom: 1rem;
+[data-bs-theme="dark"] .chart-bg {
+  background: #222 !important;
 }
-.list-group.theme-list-group {
-  margin-bottom: 0.5rem;
+[data-bs-theme="dark"] .apexcharts-canvas {
+  background: transparent !important;
 }
 @media (max-width: 991.98px) {
   .main-row {
@@ -750,11 +762,5 @@ nav.navbar {
 /* 必要なら display: block を残す */
 .theme-float-menu .dropdown-menu[data-bs-popper] {
   display: block !important;
-}
-[data-bs-theme="dark"] .chart-bg {
-  background: #222 !important;
-}
-[data-bs-theme="dark"] .apexcharts-canvas {
-  background: transparent !important;
 }
 </style>
