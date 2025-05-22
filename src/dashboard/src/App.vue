@@ -451,7 +451,9 @@ const barChartOptions = computed(() => {
         colors: ['#fff']
       },
       formatter: function (val, opt) {
-        return (topGames[opt.dataPointIndex]?.name || '') + ":  " + val;
+        // 分→時間変換し、hを付与
+        const hours = (val / 60).toFixed(1);
+        return (topGames[opt.dataPointIndex]?.name || '') + ":  " + hours + "h";
       },
       offsetX: 0,
       dropShadow: {
@@ -475,15 +477,6 @@ const barChartOptions = computed(() => {
         show: false
       }
     },
-    title: {
-      text: '',
-      align: 'center',
-      floating: true
-    },
-    subtitle: {
-      text: '',
-      align: 'center',
-    },
     tooltip: {
       theme: 'dark',
       x: {
@@ -494,6 +487,10 @@ const barChartOptions = computed(() => {
           formatter: function () {
             return ''
           }
+        },
+        formatter: function (val) {
+          // ツールチップも時間表記
+          return (val / 60).toFixed(1) + "h";
         }
       }
     }
