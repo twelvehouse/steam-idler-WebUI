@@ -516,7 +516,6 @@ const barChartOptions = computed(() => {
   const gridColor = dark ? '#444' : '#e9ecef';
   const chartBg = dark ? '#222' : '#fff';
 
-  // ApexChartsの標準ツールチップはHTMLカスタム（画像埋め込み）に対応しています
   return {
     chart: {
       type: 'bar',
@@ -568,16 +567,16 @@ const barChartOptions = computed(() => {
       custom: function({ series, seriesIndex, dataPointIndex, w }) {
         const game = topGames[dataPointIndex];
         if (!game) return '';
-        // バナー画像優先
-        const bannerUrl =
-          game.img_logo_url
-            ? (game.img_logo_url.startsWith('http')
-                ? game.img_logo_url
-                : `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/library_600x900.jpg`)
-            : `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/library_600x900.jpg`;
+        // アイコン画像のみ表示
+        const iconUrl =
+          game.img_icon_url
+            ? (game.img_icon_url.startsWith('http')
+                ? game.img_icon_url
+                : `http://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg`)
+            : '';
         const hours = (game.playtime_forever / 60).toFixed(1);
         return `<div style="display:flex;align-items:center;gap:8px;">
-          <img src="${bannerUrl}" alt="${game.name}" style="width:64px;height:48px;vertical-align:middle;margin-right:8px;border-radius:4px;">
+          ${iconUrl ? `<img src="${iconUrl}" alt="${game.name}" style="width:32px;height:32px;vertical-align:middle;margin-right:8px;border-radius:4px;">` : ''}
           <div>
             <div style="font-weight:bold;">${game.name}</div>
             <div style="font-size:0.95em;">${hours}h</div>
