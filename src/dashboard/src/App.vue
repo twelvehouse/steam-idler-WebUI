@@ -15,12 +15,12 @@
       </div>
     </nav>
 
-    <main class="container-fluid flex-grow-1 d-flex flex-column py-4 transition-bg" style="min-height:0;">
-      <div v-if="currentBot" class="row g-4 flex-grow-1 min-vh-0" style="min-height:0;">
-        <div class="col-md-5 d-flex flex-column min-vh-0" style="min-height:0;">
+    <main class="container-fluid flex-grow-1 d-flex flex-column py-4 transition-bg main-area">
+      <div v-if="currentBot" class="row g-4 flex-grow-1 min-vh-0 main-row">
+        <div class="col-md-5 d-flex flex-column min-vh-0 card-col">
           <!-- ゲーム一覧カード -->
-          <div class="card shadow-sm theme-card flex-grow-1 d-flex flex-column min-vh-0" style="min-height:0;">
-            <div class="card-body d-flex flex-column min-vh-0" style="min-height:0;">
+          <div class="card shadow-sm theme-card flex-grow-1 d-flex flex-column card-full">
+            <div class="card-body d-flex flex-column card-body-full">
               <h2 class="card-title">{{ currentBot.accountName }}</h2>
               <div class="mb-3 d-flex align-items-center gap-3">
                 <span :class="['badge', currentBot.isBotRunning ? 'bg-success' : 'bg-danger']">
@@ -80,13 +80,13 @@
             </div>
           </div>
         </div>
-        <div class="col-md-7 d-flex flex-column min-vh-0" style="min-height:0;">
+        <div class="col-md-7 d-flex flex-column min-vh-0 card-col">
           <!-- チャートカード -->
-          <div class="card shadow-sm theme-card flex-grow-1 d-flex flex-column min-vh-0" style="min-height:0;">
-            <div class="card-body d-flex flex-column min-vh-0" style="min-height:0;">
+          <div class="card shadow-sm theme-card flex-grow-1 d-flex flex-column card-full">
+            <div class="card-body d-flex flex-column card-body-full">
               <h5 class="card-title">Owned Games Playtime (Top 10)</h5>
-              <div class="chart-area flex-grow-1 d-flex flex-row flex-wrap flex-md-nowrap align-items-stretch" style="height:100%;min-height:220px;">
-                <div class="chart-bg p-3 rounded d-flex justify-content-center align-items-center flex-grow-1" style="height:100%;">
+              <div class="chart-area flex-grow-1 d-flex align-items-stretch justify-content-center">
+                <div class="chart-bg flex-grow-1 d-flex justify-content-center align-items-center">
                   <apexchart
                     type="bar"
                     height="100%"
@@ -244,12 +244,10 @@ function handleMediaChange() {
 }
 onMounted(() => {
   applyTheme();
-  window.addEventListener('resize', handleResize);
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', handleMediaChange);
 });
 watch(theme, applyTheme);
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize);
   window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', handleMediaChange);
 });
 
@@ -532,7 +530,7 @@ nav.navbar {
 .transition-color {
   transition: color 0.3s;
 }
-main.container-fluid {
+.main-area {
   flex: 1 1 0;
   min-height: 0;
   display: flex;
@@ -541,33 +539,37 @@ main.container-fluid {
   background: var(--bs-body-bg, #fff);
   color: var(--bs-body-color, #212529);
   transition: background-color 0.3s, color 0.3s;
+  padding: 1.5rem 0.5rem 0.5rem 0.5rem;
 }
-.row.g-4 {
+.main-row {
   flex: 1 1 0;
   min-height: 0;
   display: flex;
   flex-wrap: nowrap;
   overflow: hidden;
+  gap: 1.5rem;
 }
-.col-md-5, .col-md-7 {
+.card-col {
   display: flex;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
 }
-.card.theme-card {
+.card-full {
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  margin-bottom: 0;
 }
-.card-body {
+.card-body-full {
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  padding: 1.25rem 1.25rem 1.25rem 1.25rem;
 }
 .chart-area {
   flex: 1 1 0;
@@ -575,9 +577,11 @@ main.container-fluid {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  margin: 0;
+  padding: 0;
 }
 .chart-bg {
-  background: var(--chart-bg);
+  background: var(--chart-bg, #f8f9fa);
   transition: background 0.2s;
   display: flex;
   justify-content: center;
@@ -587,6 +591,37 @@ main.container-fluid {
   min-width: 0;
   overflow: hidden;
   flex: 1 1 0;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+}
+.apexcharts-canvas {
+  height: 100% !important;
+  width: 100% !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+}
+.card-title {
+  margin-bottom: 1rem;
+}
+.list-group.theme-list-group {
+  margin-bottom: 0.5rem;
+}
+@media (max-width: 991.98px) {
+  .main-row {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .card-col {
+    min-height: 220px;
+  }
+}
+@media (max-width: 767.98px) {
+  .main-area {
+    padding: 0.5rem 0.25rem 0.25rem 0.25rem;
+  }
+  .card-body-full {
+    padding: 0.75rem 0.5rem 0.75rem 0.5rem;
+  }
 }
 .logs-footer {
   background: var(--bs-body-bg, #f8f9fa);
@@ -662,11 +697,5 @@ main.container-fluid {
 /* 必要なら display: block を残す */
 .theme-float-menu .dropdown-menu[data-bs-popper] {
   display: block !important;
-}
-.apexcharts-canvas {
-  height: 100% !important;
-  width: 100% !important;
-  min-height: 0 !important;
-  min-width: 0 !important;
 }
 </style>
