@@ -85,62 +85,79 @@
     </main>
 
     <!-- Idling Games編集モーダル -->
-    <div v-if="editIdlingGames" class="modal-backdrop-custom">
-      <div class="modal-custom">
-        <div class="modal-header">
-          <h4>Edit Idling Games</h4>
-          <button class="btn-close" @click="editIdlingGames = false"></button>
-        </div>
-        <div class="modal-body d-flex flex-row h-100">
-          <!-- 左カラム: 現在アイドル中 -->
-          <div class="modal-col border-end pe-3">
-            <h6>Currently Idling</h6>
-            <ul class="list-group mb-2">
-              <li v-for="appid in currentBot.playedAppIDs" :key="appid" class="list-group-item d-flex align-items-center">
-                <img v-if="getGameIcon(appid)" :src="getGameIcon(appid)" :alt="getGameName(appid) + ' icon'" class="game-icon me-2" style="width:28px;height:28px;" />
-                <span>{{ getGameName(appid) || 'AppID: ' + appid }}</span>
-                <span class="text-muted ms-2 small">(AppID: {{ appid }})</span>
-                <button class="btn btn-sm btn-danger ms-auto" @click="removeIdlingGame(appid)">✕</button>
-              </li>
-            </ul>
+    <transition name="modal-fade">
+      <div v-if="editIdlingGames" class="modal-backdrop-custom">
+        <div class="modal-custom">
+          <div class="modal-header modal-header-theme">
+            <h4>Edit Idling Games</h4>
+            <button class="btn-close" @click="closeEditModal"></button>
           </div>
-          <!-- 中央カラム: OwnedGames -->
-          <div class="modal-col px-3 flex-grow-1">
-            <h6>Owned Games</h6>
-            <input type="text" v-model="gameSearch" placeholder="Search owned games..." class="form-control mb-2" />
-            <ul class="list-group" style="max-height:60vh;overflow-y:auto;">
-              <li v-for="game in filteredOwnedGames" :key="game.appid"
+          <div class="modal-body d-flex flex-row h-100">
+            <!-- 左カラム: 現在アイドル中 -->
+            <div class="modal-col border-end pe-3">
+              <h6>Currently Idling</h6>
+              <draggable
+                v-model="idlingList"
+                item-key="id"
+                handle=".drag-handle"
+                ghost-class="drag-ghost"
+                chosen-class="drag-chosen"
+                animation="200"
+                @end="onIdlingListReorder"
+              >
+                <template #item="{ element, index }">
+                  <li class="list-group-item d-flex align-items-center">
+                    <span class="drag-handle me-2" title="Drag to reorder" style="cursor:grab;">☰</span>
+                    <img v-if="getGameIcon(element)" :src="getGameIcon(element)" :alt="getGameName(element) + ' icon'" class="game-icon me-2" style="width:28px;height:28px;" />
+                    <span>{{ getGameName(element) || 'AppID: ' + element }}</span>
+                    <span class="text-muted ms-2 small">(AppID: {{ element }})</span>
+                    <button class="btn btn-sm btn-danger ms-auto" @click="removeIdlingGame(element)">✕</button>
+                  </li>
+                </template>
+              </draggable>
+            </div>
+            <!-- 中央カラム: Add Game グリッド -->
+            <div class="modal-col px-3 flex-grow-1" style="max-width: none;">
+              <h6>Add Game</h6>
+              <input type="text" v-model="gameSearch" placeholder="Search or add custom game..." class="form-control mb-3" />
+              <div class="games-grid">
+                <!-- 検索テキストがあればカスタムゲームを先頭に -->
+                <div
+                  v-if="gameSearch.trim()"
+                  class="game-card custom-game-card"
+                  @click="addCustomGameFromGrid"
+                  :class="{ 'disabled text-muted': isIdling(gameSearch.trim()) }"
+                  title="Add custom game"
+                >
+                  <div class="game-card-header">Custom Game</div>
+                  <div class="game-card-title">{{ gameSearch.trim() }}</div>
+                  <div class="game-card-appid">AppID: {{ gameSearch.trim() }}</div>
+                  <button class="btn btn-primary btn-sm mt-2 w-100" :disabled="isIdling(gameSearch.trim())">Add</button>
+                </div>
+                <!-- OwnedGamesグリッド -->
+                <div
+                  v-for="game in filteredOwnedGames"
+                  :key="game.appid"
+                  class="game-card"
                   @click="addIdlingGame(game.appid)"
-                  class="list-group-item d-flex align-items-center"
                   :class="{ 'disabled text-muted': isIdling(game.appid) }"
-                  style="cursor:pointer;">
-                <img v-if="game.img_icon_url" :src="game.img_icon_url" :alt="game.name + ' icon'" class="game-icon me-2" style="width:24px;height:24px;" />
-                <span>{{ game.name }}</span>
-                <span class="text-muted ms-2 small">(AppID: {{ game.appid }})</span>
-                <span v-if="isIdling(game.appid)" class="badge bg-success ms-auto">Already Idling</span>
-              </li>
-            </ul>
-          </div>
-          <!-- 右カラム: カスタムゲーム -->
-          <div class="modal-col border-start ps-3" style="min-width:220px;">
-            <h6>Add Custom Game</h6>
-            <form @submit.prevent="addCustomGame">
-              <input type="text" v-model="customGameName" placeholder="Game name (e.g. Minecraft)" class="form-control mb-2" />
-              <button class="btn btn-primary w-100 mb-2" :disabled="!customGameName.trim()">Add</button>
-            </form>
-            <div v-if="customGames.length">
-              <h6 class="mt-3">Custom Games</h6>
-              <ul class="list-group">
-                <li v-for="(name, idx) in customGames" :key="name" class="list-group-item d-flex align-items-center">
-                  <span>{{ name }}</span>
-                  <button class="btn btn-sm btn-danger ms-auto" @click="removeCustomGame(idx)">✕</button>
-                </li>
-              </ul>
+                  :title="isIdling(game.appid) ? 'Already Idling' : 'Add to Idling'"
+                >
+                  <div class="game-card-header">
+                    <img v-if="game.img_icon_url" :src="game.img_icon_url" :alt="game.name + ' icon'" class="game-icon" style="width:28px;height:28px;" />
+                  </div>
+                  <div class="game-card-title">{{ game.name }}</div>
+                  <div class="game-card-appid">AppID: {{ game.appid }}</div>
+                  <button class="btn btn-outline-primary btn-sm mt-2 w-100" :disabled="isIdling(game.appid)">
+                    {{ isIdling(game.appid) ? 'Already Idling' : 'Add' }}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </transition>
 
     <footer class="logs-footer py-3 px-4 flex-shrink-0 transition-bg transition-color">
       <pre class="logs-container-terminal" ref="logsContainerRef" v-html="coloredLogs"></pre>
@@ -222,6 +239,7 @@
 import { ref, computed, onMounted, watch, nextTick, onUnmounted } from 'vue';
 import { useAccountStore } from '@/stores/accountStore';
 import api from '@/services/api';
+import draggable from 'vuedraggable';
 
 const accountStore = useAccountStore();
 const accounts = computed(() => accountStore.accounts.map(acc => ({ value: acc, text: acc })));
@@ -238,6 +256,7 @@ const gameSearch = ref('');
 const editIdlingGames = ref(false);
 const customGames = ref([]); // 右カラム用
 const customGameName = ref('');
+const idlingList = ref([]);
 
 // テーマ状態
 const theme = ref(getInitialTheme());
@@ -328,6 +347,30 @@ async function removeIdlingGame(appid) {
 function toggleEditIdlingGames() {
   editIdlingGames.value = !editIdlingGames.value;
   if (editIdlingGames.value) fetchOwnedGames();
+}
+
+// モーダル表示時にidlingListを同期
+watch(editIdlingGames, (val) => {
+  if (val && currentBot.value?.playedAppIDs) {
+    idlingList.value = [...currentBot.value.playedAppIDs];
+  }
+});
+
+// 並び替え確定時にconfig.jsonへ反映
+async function onIdlingListReorder() {
+  if (!currentBot.value) return;
+  try {
+    const configRes = await api.getGamesConfig();
+    let playingGames = configRes.data.playingGames || {};
+    playingGames[selectedAccount.value] = [...idlingList.value];
+    await api.updateGamesConfig({ playingGames });
+    await fetchBots();
+  } catch {}
+}
+
+// モーダルを閉じるときにアニメーション後に非表示
+function closeEditModal() {
+  editIdlingGames.value = false;
 }
 
 async function fetchOwnedGames() {
@@ -507,6 +550,21 @@ async function addCustomGame() {
     await api.updateGamesConfig({ playingGames });
     await fetchBots();
     customGameName.value = '';
+  } catch {}
+}
+
+// カスタムゲーム追加（グリッド先頭から）
+async function addCustomGameFromGrid() {
+  const name = gameSearch.value.trim();
+  if (!name || isIdling(name)) return;
+  try {
+    const configRes = await api.getGamesConfig();
+    let playingGames = configRes.data.playingGames || {};
+    if (!Array.isArray(playingGames[selectedAccount.value])) playingGames[selectedAccount.value] = [];
+    playingGames[selectedAccount.value].push(name);
+    await api.updateGamesConfig({ playingGames });
+    await fetchBots();
+    gameSearch.value = '';
   } catch {}
 }
 
@@ -794,6 +852,20 @@ nav.navbar {
   justify-content: space-between;
   padding: 1.2rem 1.5rem 1rem 1.5rem;
   border-bottom: 1px solid var(--bs-border-color, #eee);
+  background: var(--bs-card-bg, #fff);
+  color: var(--bs-body-color, #212529);
+  transition: background 0.3s, color 0.3s;
+}
+[data-bs-theme="dark"] .modal-header,
+[data-bs-theme="dark"] .modal-header-theme {
+  background: #222 !important;
+  color: #f8f9fa !important;
+  border-bottom: 1px solid #444 !important;
+}
+.modal-header-theme {
+  background: var(--bs-card-bg, #fff);
+  color: var(--bs-body-color, #212529);
+  transition: background 0.3s, color 0.3s;
 }
 .modal-body {
   flex: 1 1 0;
@@ -810,6 +882,75 @@ nav.navbar {
   min-width: 200px;
   max-width: 340px;
   flex: 1 1 0;
+}
+.modal-col.px-3.flex-grow-1 {
+  max-width: none !important;
+}
+.games-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  width: 100%;
+}
+.game-card {
+  background: var(--bs-card-bg, #fff);
+  border: 1px solid var(--bs-border-color, #eee);
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  width: 160px;
+  min-height: 120px;
+  padding: 0.75rem 0.5rem 0.5rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: box-shadow 0.2s, border-color 0.2s, background 0.2s;
+  position: relative;
+}
+.game-card:hover:not(.disabled) {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+  border-color: #339af0;
+  background: var(--bs-tertiary-bg, #f8f9fa);
+}
+.game-card.disabled,
+.game-card.text-muted {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.game-card-header {
+  font-size: 0.95em;
+  font-weight: 600;
+  margin-bottom: 0.25em;
+  text-align: center;
+}
+.game-card-title {
+  font-size: 1em;
+  font-weight: 500;
+  margin-bottom: 0.25em;
+  text-align: center;
+  word-break: break-all;
+}
+.game-card-appid {
+  font-size: 0.85em;
+  color: #888;
+  margin-bottom: 0.25em;
+  text-align: center;
+}
+.custom-game-card {
+  border: 2px dashed #339af0;
+  background: #eaf4fb;
+}
+[data-bs-theme="dark"] .game-card {
+  background: #222 !important;
+  border-color: #444 !important;
+  color: #f8f9fa !important;
+}
+[data-bs-theme="dark"] .custom-game-card {
+  background: #232c3a !important;
+  border-color: #339af0 !important;
+}
+[data-bs-theme="dark"] .game-card-appid {
+  color: #aaa !important;
 }
 @media (max-width: 991.98px) {
   .modal-custom {
@@ -828,5 +969,31 @@ nav.navbar {
     max-width: 100%;
     min-width: 0;
   }
+}
+/* モーダルアニメーション */
+.modal-fade-enter-active, .modal-fade-leave-active {
+  transition: opacity 0.25s cubic-bezier(.4,0,.2,1);
+}
+.modal-fade-enter-from, .modal-fade-leave-to {
+  opacity: 0;
+}
+.modal-fade-enter-to, .modal-fade-leave-from {
+  opacity: 1;
+}
+/* ドラッグハンドル */
+.drag-handle {
+  cursor: grab;
+  font-size: 1.2em;
+  color: #888;
+  user-select: none;
+}
+.drag-ghost {
+  opacity: 0.5;
+}
+.drag-chosen {
+  background: #e9ecef !important;
+}
+[data-bs-theme="dark"] .drag-chosen {
+  background: #333 !important;
 }
 </style>
