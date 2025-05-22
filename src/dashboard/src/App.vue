@@ -419,11 +419,24 @@ const barChartOptions = computed(() => {
   const topGames = [...ownedGames.value]
     .sort((a, b) => b.playtime_forever - a.playtime_forever)
     .slice(0, 10);
+
+  // テーマに応じた色
+  const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+  const labelColor = isDark ? '#f8f9fa' : '#212529';
+  const gridColor = isDark ? '#444' : '#e9ecef';
+  const chartBg = isDark ? '#222' : '#fff';
+
   return {
     chart: {
       type: 'bar',
       height: '100%',
-      toolbar: { show: false }
+      toolbar: { show: false },
+      background: chartBg,
+      foreColor: labelColor,
+      animations: { enabled: false },
+    },
+    theme: {
+      mode: isDark ? 'dark' : 'light'
     },
     plotOptions: {
       bar: {
@@ -436,7 +449,7 @@ const barChartOptions = computed(() => {
       }
     },
     legend: {
-      show: false // 判例を非表示
+      show: false
     },
     colors: [
       '#33b2df', '#546E7A', '#d4526e', '#13d8aa', '#A5978B',
@@ -446,27 +459,32 @@ const barChartOptions = computed(() => {
       enabled: true,
       textAnchor: 'start',
       style: {
-        colors: ['#fff']
+        colors: [labelColor]
       },
       formatter: function (val, opt) {
-        // 分→時間変換し、hを付与
         const hours = (val / 60).toFixed(1);
         return (topGames[opt.dataPointIndex]?.name || '') + ":  " + hours + "h";
       },
       offsetX: 0,
       dropShadow: {
-        enabled: true
+        enabled: true,
+        color: isDark ? '#000' : '#fff'
       }
     },
     stroke: {
       width: 1,
-      colors: ['#fff']
+      colors: [chartBg]
+    },
+    grid: {
+      borderColor: gridColor,
+      xaxis: { lines: { show: false } },
+      yaxis: { lines: { show: false } }
     },
     xaxis: {
       categories: topGames.map(g => g.name),
       labels: {
         style: {
-          colors: '#888'
+          colors: Array(topGames.length).fill(labelColor)
         }
       }
     },
@@ -476,7 +494,7 @@ const barChartOptions = computed(() => {
       }
     },
     tooltip: {
-      theme: 'dark',
+      theme: isDark ? 'dark' : 'light',
       x: {
         show: false
       },
@@ -487,12 +505,18 @@ const barChartOptions = computed(() => {
           }
         },
         formatter: function (val) {
-          // ツールチップも時間表記
           return (val / 60).toFixed(1) + "h";
         }
       }
     }
   };
+});
+
+// テーマ変更時にApexChartsの再描画を促す
+watch(theme, () => {
+  // ApexChartsはoptionsが変われば自動で再描画される
+  // ただし、data-bs-theme属性の変更は即時反映されるようnextTickで強制再計算
+  nextTick(() => {});
 });
 
 watch(selectedAccount, async () => {
@@ -579,9 +603,10 @@ nav.navbar {
   flex-direction: column;
   margin: 0;
   padding: 0;
+  position: relative;
 }
 .chart-bg {
-  background: var(--chart-bg, #f8f9fa);
+  background: var(--bs-card-bg, #fff);
   transition: background 0.2s;
   display: flex;
   justify-content: center;
@@ -593,12 +618,18 @@ nav.navbar {
   flex: 1 1 0;
   padding: 0.5rem;
   border-radius: 0.5rem;
+  position: relative;
+  width: 100%;
 }
 .apexcharts-canvas {
+  position: absolute !important;
+  top: 0; left: 0;
   height: 100% !important;
   width: 100% !important;
   min-height: 0 !important;
   min-width: 0 !important;
+  background: transparent !important;
+  z-index: 1;
 }
 .card-title {
   margin-bottom: 1rem;
@@ -697,5 +728,11 @@ nav.navbar {
 /* 必要なら display: block を残す */
 .theme-float-menu .dropdown-menu[data-bs-popper] {
   display: block !important;
+}
+[data-bs-theme="dark"] .chart-bg {
+  background: #222 !important;
+}
+[data-bs-theme="dark"] .apexcharts-canvas {
+  background: transparent !important;
 }
 </style>
