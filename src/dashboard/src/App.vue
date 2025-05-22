@@ -547,19 +547,22 @@ const barChartOptions = computed(() => {
     xaxis: {
       // カテゴリをimgタグでHTML化
       categories: topGames.map(g =>
-        `<img src="${getIconUrl(g)}" alt="${g.name}" style="width:32px;height:32px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.10);background:#fff;object-fit:contain;" />`
+        `<img src="${getIconUrl(g)}" alt="${g.name}" style="width:32px;height:32px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.10);background:#fff;object-fit:contain;display:block;margin:auto;" />`
       ),
       labels: {
         show: true,
         useHTML: true,
         style: { colors: Array(topGames.length).fill(labelColor) },
-        // y軸ラベルはApexChartsのxaxis.labels.formatterでHTMLを返す場合はuseHTML:true必須
-        formatter: function(val) { return val; }
+        formatter: function(val) { return val; },
+        minWidth: 40,
+        maxWidth: 40,
+        offsetY: 0,
+        offsetX: 0
       }
     },
     yaxis: {
       labels: {
-        show: false // ← ここをtrueにしても横棒グラフではxaxis側がラベル
+        show: false
       }
     },
     tooltip: {
@@ -1117,5 +1120,27 @@ nav.navbar {
 }
 [data-bs-theme="dark"] .drag-chosen {
   background: #333 !important;
+}
+.apexcharts-xaxis-label {
+  /* 横棒グラフのx軸ラベル（画像）を中央寄せ・余白調整 */
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  overflow: visible !important;
+}
+.apexcharts-xaxis-label img {
+  display: block;
+  margin: 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: #fff;
+  object-fit: contain;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.10);
 }
 </style>
