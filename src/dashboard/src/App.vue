@@ -18,7 +18,8 @@
     <main class="container-fluid flex-grow-1 d-flex flex-column py-4 transition-bg" style="min-height:0;">
       <div v-if="currentBot" class="row g-4 flex-grow-1 min-vh-0" style="min-height:0;">
         <div class="col-md-5 d-flex flex-column min-vh-0" style="min-height:0;">
-          <div class="card shadow-sm theme-card flex-grow-1 min-vh-0" style="min-height:0;">
+          <!-- ゲーム一覧カード -->
+          <div class="card shadow-sm theme-card flex-grow-1 d-flex flex-column min-vh-0" style="min-height:0;">
             <div class="card-body d-flex flex-column min-vh-0" style="min-height:0;">
               <h2 class="card-title">{{ currentBot.accountName }}</h2>
               <div class="mb-3 d-flex align-items-center gap-3">
@@ -80,14 +81,16 @@
           </div>
         </div>
         <div class="col-md-7 d-flex flex-column min-vh-0" style="min-height:0;">
-          <div class="card shadow-sm theme-card flex-grow-1 min-vh-0" style="min-height:0;">
+          <!-- チャートカード -->
+          <div class="card shadow-sm theme-card flex-grow-1 d-flex flex-column min-vh-0" style="min-height:0;">
             <div class="card-body d-flex flex-column min-vh-0" style="min-height:0;">
               <h5 class="card-title">Owned Games Playtime (Top 10)</h5>
-              <div class="chart-area d-flex flex-row flex-wrap flex-md-nowrap align-items-stretch" style="height:100%;min-height:220px;">
+              <div class="chart-area flex-grow-1 d-flex flex-row flex-wrap flex-md-nowrap align-items-stretch" style="height:100%;min-height:220px;">
                 <div class="chart-bg p-3 rounded d-flex justify-content-center align-items-center flex-grow-1" style="height:100%;">
                   <apexchart
                     type="bar"
-                    height="380"
+                    height="100%"
+                    width="100%"
                     :options="barChartOptions"
                     :series="barChartSeries"
                   ></apexchart>
@@ -421,7 +424,7 @@ const barChartOptions = computed(() => {
   return {
     chart: {
       type: 'bar',
-      height: 380,
+      height: '100%',
       toolbar: { show: false }
     },
     plotOptions: {
@@ -433,6 +436,9 @@ const barChartOptions = computed(() => {
           position: 'bottom'
         },
       }
+    },
+    legend: {
+      show: false // 判例を非表示
     },
     colors: [
       '#33b2df', '#546E7A', '#d4526e', '#13d8aa', '#A5978B',
@@ -470,12 +476,12 @@ const barChartOptions = computed(() => {
       }
     },
     title: {
-      text: 'Custom DataLabels',
+      text: '',
       align: 'center',
       floating: true
     },
     subtitle: {
-      text: 'Category Names as DataLabels inside bars',
+      text: '',
       align: 'center',
     },
     tooltip: {
@@ -556,16 +562,22 @@ main.container-fluid {
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .card-body {
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .chart-area {
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .chart-bg {
   background: var(--chart-bg);
@@ -577,6 +589,7 @@ main.container-fluid {
   height: 100%;
   min-width: 0;
   overflow: hidden;
+  flex: 1 1 0;
 }
 .logs-footer {
   background: var(--bs-body-bg, #f8f9fa);
@@ -652,5 +665,11 @@ main.container-fluid {
 /* 必要なら display: block を残す */
 .theme-float-menu .dropdown-menu[data-bs-popper] {
   display: block !important;
+}
+.apexcharts-canvas {
+  height: 100% !important;
+  width: 100% !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
 }
 </style>
