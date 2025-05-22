@@ -94,7 +94,7 @@
           </div>
           <div class="modal-body d-flex flex-row h-100">
             <!-- 左カラム: 現在アイドル中 -->
-            <div class="modal-col border-end pe-3">
+            <div class="modal-col border-end pe-3 idling-col">
               <h6>Currently Idling</h6>
               <draggable
                 v-model="idlingList"
@@ -116,42 +116,37 @@
                 </template>
               </draggable>
             </div>
-            <!-- 中央カラム: Add Game グリッド -->
-            <div class="modal-col px-3 flex-grow-1" style="max-width: none;">
+            <!-- 中央カラム: Add Game グリッド（デスクトップ風アイコン表示） -->
+            <div class="modal-col px-3 flex-grow-1 games-col">
               <h6>Add Game</h6>
               <input type="text" v-model="gameSearch" placeholder="Search or add custom game..." class="form-control mb-3" />
-              <div class="games-grid">
+              <div class="games-desktop-grid">
                 <!-- 検索テキストがあればカスタムゲームを先頭に -->
                 <div
                   v-if="gameSearch.trim()"
-                  class="game-card custom-game-card"
+                  class="game-desktop-icon custom-game-card"
                   @click="addCustomGameFromGrid"
                   :class="{ 'disabled text-muted': isIdling(gameSearch.trim()) }"
                   title="Add custom game"
                 >
-                  <div class="game-card-header">Custom Game</div>
-                  <div class="game-card-title">{{ gameSearch.trim() }}</div>
-                  <div class="game-card-appid">AppID: {{ gameSearch.trim() }}</div>
+                  <div class="game-desktop-icon-img">
+                    <div class="custom-game-placeholder">+</div>
+                  </div>
+                  <div class="game-desktop-title">{{ truncateTitle(gameSearch.trim()) }}</div>
                 </div>
                 <!-- OwnedGamesグリッド -->
                 <div
                   v-for="game in filteredOwnedGames"
                   :key="game.appid"
-                  class="game-card"
+                  class="game-desktop-icon"
                   @click="addIdlingGame(game.appid)"
                   :class="{ 'disabled text-muted': isIdling(game.appid) }"
-                  :title="isIdling(game.appid) ? 'Already Idling' : 'Add to Idling'"
+                  :title="isIdling(game.appid) ? 'Already Idling' : game.name"
                 >
-                  <div class="game-card-header">
-                    <img
-                      v-if="getGameBanner(game)"
-                      :src="getGameBanner(game)"
-                      :alt="game.name + ' banner'"
-                      class="game-banner"
-                    />
+                  <div class="game-desktop-icon-img">
+                    <img v-if="game.img_icon_url" :src="game.img_icon_url" :alt="game.name + ' icon'" />
                   </div>
-                  <div class="game-card-title">{{ game.name }}</div>
-                  <div class="game-card-appid">AppID: {{ game.appid }}</div>
+                  <div class="game-desktop-title">{{ truncateTitle(game.name) }}</div>
                 </div>
               </div>
             </div>
@@ -259,41 +254,10 @@ const customGames = ref([]); // 右カラム用
 const customGameName = ref('');
 const idlingList = ref([]);
 
-// バナー画像キャッシュ
-const bannerUrlCache = ref({});
-
-// バナー画像URL取得（キャッシュ付き）
-async function getGameBannerUrl(appid) {
-  if (!appid) return null;
-  if (bannerUrlCache.value[appid]) return bannerUrlCache.value[appid];
-  // まず既知のURLパターンで仮定
-  const url = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}/library_600x900.jpg`;
-  // HEADリクエストはCORSで失敗する場合があるのでAPI経由
-  try {
-    const res = await api.getGameBannerUrl(appid);
-    if (res.data && res.data.url) {
-      bannerUrlCache.value[appid] = res.data.url;
-      return res.data.url;
-    }
-  } catch {
-    bannerUrlCache.value[appid] = null;
-  }
-  return null;
-}
-
-// ゲームのバナー画像URLを返す（img_logo_urlがなければAPIで取得）
-function getGameBanner(game) {
-  if (game.img_logo_url) {
-    // 旧API互換: img_logo_urlがあればそれを使う
-    return game.img_logo_url.startsWith('http')
-      ? game.img_logo_url
-      : `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/library_600x900.jpg`;
-  }
-  // まだキャッシュにない場合はAPIで取得を試みる
-  if (bannerUrlCache.value[game.appid]) return bannerUrlCache.value[game.appid];
-  // 非同期取得（副作用だがUI更新のため）
-  getGameBannerUrl(game.appid);
-  return null;
+// タイトルを最大長で切る（デスクトップ風）
+function truncateTitle(title, maxLen = 16) {
+  if (!title) return '';
+  return title.length > maxLen ? title.slice(0, maxLen - 1) + '…' : title;
 }
 
 // テーマ状態
@@ -925,89 +889,100 @@ nav.navbar {
   flex-direction: row;
   gap: 1.5rem;
   padding: 1.5rem;
-  overflow: auto;
+  overflow: hidden; /* ← 修正: 全体スクロールを防ぐ */
   background: var(--bs-body-bg, #f8f9fa);
 }
-.modal-col {
+.idling-col {
+  max-width: 340px;
+  min-width: 200px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 0 0 320px;
+  height: 100%;
+}
+.games-col {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: none !important;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  min-width: 200px;
-  max-width: 340px;
-  flex: 1 1 0;
 }
-.modal-col.px-3.flex-grow-1 {
-  max-width: none !important;
-}
-.games-grid {
+.games-desktop-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 1.2rem 1.2rem;
   width: 100%;
+  overflow-y: auto;
+  padding-bottom: 0.5rem;
+  align-content: flex-start;
+  height: 100%;
+  min-height: 0;
 }
-.game-card {
-  background: var(--bs-card-bg, #fff);
-  border: 1px solid var(--bs-border-color, #eee);
-  border-radius: 8px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-  width: 160px;
-  min-height: 120px;
-  padding: 0.75rem 0.5rem 0.5rem 0.5rem;
+.game-desktop-icon {
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 78px;
+  margin-bottom: 0.5rem;
   cursor: pointer;
-  transition: box-shadow 0.2s, border-color 0.2s, background 0.2s;
-  position: relative;
+  user-select: none;
+  transition: background 0.15s, box-shadow 0.15s;
+  border-radius: 8px;
+  padding: 6px 2px 2px 2px;
 }
-.game-card:hover:not(.disabled) {
-  box-shadow: 0 2px 12px rgba(0,0,0,0.10);
-  border-color: #339af0;
-  background: var(--bs-tertiary-bg, #f8f9fa);
+.game-desktop-icon:hover:not(.disabled) {
+  background: #eaf4fb;
+  box-shadow: 0 2px 8px rgba(51,154,240,0.08);
 }
-.game-card.disabled,
-.game-card.text-muted {
+.game-desktop-icon.disabled,
+.game-desktop-icon.text-muted {
   opacity: 0.5;
   pointer-events: none;
 }
-.game-card-header {
-  font-size: 0.95em;
-  font-weight: 600;
-  margin-bottom: 0.25em;
-  text-align: center;
-  min-height: 32px;
+.game-desktop-icon-img {
+  width: 48px;
+  height: 48px;
+  background: #f3f3f3;
+  border-radius: 8px;
+  margin-bottom: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07);
 }
-.game-banner {
-  width: 120px;
-  height: 45px;
-  object-fit: cover;
-  border-radius: 4px;
-  background: #eee;
-  margin-bottom: 0.25em;
+.game-desktop-icon-img img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #fff;
 }
-@media (max-width: 991.98px) {
-  .game-banner {
-    width: 90px;
-    height: 34px;
-  }
-}
-.custom-game-card {
-  border: 2px dashed #339af0;
+.custom-game-placeholder {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2em;
+  color: #339af0;
   background: #eaf4fb;
+  border-radius: 6px;
+  border: 2px dashed #339af0;
 }
-[data-bs-theme="dark"] .game-card {
-  background: #222 !important;
-  border-color: #444 !important;
-  color: #f8f9fa !important;
+.game-desktop-title {
+  font-size: 0.92em;
+  text-align: center;
+  margin-top: 2px;
+  word-break: break-all;
+  max-width: 72px;
+  white-space: pre-line;
+  line-height: 1.15;
+  color: #222;
 }
-[data-bs-theme="dark"] .custom-game-card {
-  background: #232c3a !important;
-  border-color: #339af0 !important;
-}
-[data-bs-theme="dark"] .game-card-appid {
-  color: #aaa !important;
+[data-bs-theme="dark"] .game-desktop-title {
+  color: #f8f9fa;
 }
 @media (max-width: 991.98px) {
   .modal-custom {
@@ -1022,9 +997,31 @@ nav.navbar {
     gap: 1rem;
     padding: 1rem;
   }
-  .modal-col {
+  .modal-col,
+  .idling-col {
     max-width: 100%;
     min-width: 0;
+    flex: 1 1 0;
+    height: auto;
+  }
+  .games-desktop-grid {
+    gap: 1rem 1rem;
+  }
+}
+@media (max-width: 600px) {
+  .game-desktop-icon {
+    width: 60px;
+  }
+  .game-desktop-title {
+    max-width: 54px;
+    font-size: 0.85em;
+  }
+  .game-desktop-icon-img,
+  .game-desktop-icon-img img,
+  .custom-game-placeholder {
+    width: 36px;
+    height: 36px;
+    font-size: 1.3em;
   }
 }
 /* モーダルアニメーション */
