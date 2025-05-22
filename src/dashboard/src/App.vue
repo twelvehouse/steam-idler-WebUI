@@ -495,6 +495,14 @@ const barChartOptions = computed(() => {
   const gridColor = dark ? '#444' : '#e9ecef';
   const chartBg = dark ? '#222' : '#fff';
 
+  // アイコンURL取得（なければダミー）
+  const getIconUrl = (game) =>
+    game?.img_icon_url
+      ? (game.img_icon_url.startsWith('http')
+          ? game.img_icon_url
+          : `http://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg`)
+      : dummyIcon;
+
   return {
     chart: {
       type: 'bar',
@@ -537,22 +545,29 @@ const barChartOptions = computed(() => {
       padding: { left: 0, right: 0, top: 0, bottom: 0 }
     },
     xaxis: {
-      categories: topGames.map(g => g.name),
-      labels: { style: { colors: Array(topGames.length).fill(labelColor) } }
+      // カテゴリをimgタグでHTML化
+      categories: topGames.map(g =>
+        `<img src="${getIconUrl(g)}" alt="${g.name}" style="width:32px;height:32px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.10);background:#fff;object-fit:contain;" />`
+      ),
+      labels: {
+        show: true,
+        useHTML: true,
+        style: { colors: Array(topGames.length).fill(labelColor) },
+        // y軸ラベルはApexChartsのxaxis.labels.formatterでHTMLを返す場合はuseHTML:true必須
+        formatter: function(val) { return val; }
+      }
     },
-    yaxis: { labels: { show: false } },
+    yaxis: {
+      labels: {
+        show: false // ← ここをtrueにしても横棒グラフではxaxis側がラベル
+      }
+    },
     tooltip: {
       theme: dark ? 'dark' : 'light',
       custom: function({ series, seriesIndex, dataPointIndex, w }) {
         const game = topGames[dataPointIndex];
         if (!game) return '';
-        // アイコン画像のみ表示
-        const iconUrl =
-          game.img_icon_url
-            ? (game.img_icon_url.startsWith('http')
-                ? game.img_icon_url
-                : `http://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg`)
-            : '';
+        const iconUrl = getIconUrl(game);
         const hours = (game.playtime_forever / 60).toFixed(1);
         return `<div style="display:flex;align-items:center;gap:8px;">
           ${iconUrl ? `<img src="${iconUrl}" alt="${game.name}" style="width:32px;height:32px;vertical-align:middle;margin-right:8px;border-radius:4px;">` : ''}
