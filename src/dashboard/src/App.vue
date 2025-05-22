@@ -31,33 +31,28 @@
                 <div class="d-flex align-items-center mb-2">
                   <h5 class="mb-0">Idling Games</h5>
                   <button class="btn btn-sm btn-outline-primary ms-2" @click="toggleEditIdlingGames">
-                    {{ editIdlingGames ? 'Done' : 'Edit' }}
+                    Edit
                   </button>
                 </div>
-                <ul class="list-group mb-3 theme-list-group">
-                  <li v-for="appid in currentBot.playedAppIDs" :key="appid" class="list-group-item d-flex align-items-center">
-                    <img v-if="getGameIcon(appid)" :src="getGameIcon(appid)" :alt="getGameName(appid) + ' icon'" class="game-icon me-2" />
-                    <span>{{ getGameName(appid) || 'AppID: ' + appid }}</span>
-                    <span class="text-muted ms-2 small">(AppID: {{ appid }})</span>
-                    <button v-if="editIdlingGames" class="btn btn-sm btn-danger ms-auto" @click="removeIdlingGame(appid)">✕</button>
-                  </li>
-                </ul>
-              </div>
-              <div v-if="editIdlingGames" class="mb-3">
-                <h6>Add Game to Idle</h6>
-                <input type="text" v-model="gameSearch" placeholder="Search owned games by name..." class="form-control mb-2" />
-                <ul class="list-group theme-list-group" style="max-height:200px;overflow-y:auto;">
-                  <li v-for="game in filteredOwnedGames" :key="game.appid"
-                      @click="addIdlingGame(game.appid)"
-                      class="list-group-item d-flex align-items-center"
-                      :class="{ 'disabled text-muted': isIdling(game.appid) }"
-                      style="cursor:pointer;">
-                    <img v-if="game.img_icon_url" :src="game.img_icon_url" :alt="game.name + ' icon'" class="game-icon me-2" />
-                    <span>{{ game.name }}</span>
-                    <span class="text-muted ms-2 small">(AppID: {{ game.appid }})</span>
-                    <span v-if="isIdling(game.appid)" class="badge bg-success ms-auto">Already Idling</span>
-                  </li>
-                </ul>
+                <!-- テーブル風表示 -->
+                <table class="table table-sm table-hover align-middle mb-3">
+                  <thead>
+                    <tr>
+                      <th style="width:36px;"></th>
+                      <th>Game Name</th>
+                      <th>AppID</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="appid in currentBot.playedAppIDs" :key="appid">
+                      <td>
+                        <img v-if="getGameIcon(appid)" :src="getGameIcon(appid)" :alt="getGameName(appid) + ' icon'" class="game-icon" style="width:32px;height:32px;" />
+                      </td>
+                      <td>{{ getGameName(appid) || 'AppID: ' + appid }}</td>
+                      <td>{{ appid }}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -88,6 +83,65 @@
         </div>
       </div>
     </main>
+
+    <!-- Idling Games編集モーダル -->
+    <div v-if="editIdlingGames" class="modal-backdrop-custom">
+      <div class="modal-custom">
+        <div class="modal-header">
+          <h4>Edit Idling Games</h4>
+          <button class="btn-close" @click="editIdlingGames = false"></button>
+        </div>
+        <div class="modal-body d-flex flex-row h-100">
+          <!-- 左カラム: 現在アイドル中 -->
+          <div class="modal-col border-end pe-3">
+            <h6>Currently Idling</h6>
+            <ul class="list-group mb-2">
+              <li v-for="appid in currentBot.playedAppIDs" :key="appid" class="list-group-item d-flex align-items-center">
+                <img v-if="getGameIcon(appid)" :src="getGameIcon(appid)" :alt="getGameName(appid) + ' icon'" class="game-icon me-2" style="width:28px;height:28px;" />
+                <span>{{ getGameName(appid) || 'AppID: ' + appid }}</span>
+                <span class="text-muted ms-2 small">(AppID: {{ appid }})</span>
+                <button class="btn btn-sm btn-danger ms-auto" @click="removeIdlingGame(appid)">✕</button>
+              </li>
+            </ul>
+          </div>
+          <!-- 中央カラム: OwnedGames -->
+          <div class="modal-col px-3 flex-grow-1">
+            <h6>Owned Games</h6>
+            <input type="text" v-model="gameSearch" placeholder="Search owned games..." class="form-control mb-2" />
+            <ul class="list-group" style="max-height:60vh;overflow-y:auto;">
+              <li v-for="game in filteredOwnedGames" :key="game.appid"
+                  @click="addIdlingGame(game.appid)"
+                  class="list-group-item d-flex align-items-center"
+                  :class="{ 'disabled text-muted': isIdling(game.appid) }"
+                  style="cursor:pointer;">
+                <img v-if="game.img_icon_url" :src="game.img_icon_url" :alt="game.name + ' icon'" class="game-icon me-2" style="width:24px;height:24px;" />
+                <span>{{ game.name }}</span>
+                <span class="text-muted ms-2 small">(AppID: {{ game.appid }})</span>
+                <span v-if="isIdling(game.appid)" class="badge bg-success ms-auto">Already Idling</span>
+              </li>
+            </ul>
+          </div>
+          <!-- 右カラム: カスタムゲーム -->
+          <div class="modal-col border-start ps-3" style="min-width:220px;">
+            <h6>Add Custom Game</h6>
+            <form @submit.prevent="addCustomGame">
+              <input type="text" v-model="customGameName" placeholder="Game name (e.g. Minecraft)" class="form-control mb-2" />
+              <button class="btn btn-primary w-100 mb-2" :disabled="!customGameName.trim()">Add</button>
+            </form>
+            <div v-if="customGames.length">
+              <h6 class="mt-3">Custom Games</h6>
+              <ul class="list-group">
+                <li v-for="(name, idx) in customGames" :key="name" class="list-group-item d-flex align-items-center">
+                  <span>{{ name }}</span>
+                  <button class="btn btn-sm btn-danger ms-auto" @click="removeCustomGame(idx)">✕</button>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <footer class="logs-footer py-3 px-4 flex-shrink-0 transition-bg transition-color">
       <pre class="logs-container-terminal" ref="logsContainerRef" v-html="coloredLogs"></pre>
     </footer>
@@ -182,6 +236,8 @@ const logsContainerRef = ref(null);
 
 const gameSearch = ref('');
 const editIdlingGames = ref(false);
+const customGames = ref([]); // 右カラム用
+const customGameName = ref('');
 
 // テーマ状態
 const theme = ref(getInitialTheme());
@@ -439,6 +495,20 @@ const barChartOptions = computed(() => {
   };
 });
 
+// カスタムゲーム追加
+function addCustomGame() {
+  const name = customGameName.value.trim();
+  if (!name) return;
+  if (!customGames.value.includes(name)) {
+    customGames.value.push(name);
+    customGameName.value = '';
+  }
+}
+// カスタムゲーム削除
+function removeCustomGame(idx) {
+  customGames.value.splice(idx, 1);
+}
+
 watch(selectedAccount, async () => {
   await fetchBots();
   await fetchOwnedGames();
@@ -686,5 +756,71 @@ nav.navbar {
 /* 必要なら display: block を残す */
 .theme-float-menu .dropdown-menu[data-bs-popper] {
   display: block !important;
+}
+.table th, .table td {
+  vertical-align: middle;
+}
+.modal-backdrop-custom {
+  position: fixed;
+  z-index: 2000;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-custom {
+  background: var(--bs-card-bg, #fff);
+  color: var(--bs-body-color, #212529);
+  border-radius: 12px;
+  box-shadow: 0 0 32px rgba(0,0,0,0.25);
+  width: 90vw;
+  max-width: 1100px;
+  min-height: 60vh;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.2rem 1.5rem 1rem 1.5rem;
+  border-bottom: 1px solid var(--bs-border-color, #eee);
+}
+.modal-body {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: row;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  overflow: auto;
+  background: var(--bs-body-bg, #f8f9fa);
+}
+.modal-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  max-width: 340px;
+  flex: 1 1 0;
+}
+@media (max-width: 991.98px) {
+  .modal-custom {
+    flex-direction: column;
+    width: 98vw;
+    min-width: 0;
+    max-width: 99vw;
+    padding: 0;
+  }
+  .modal-body {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  .modal-col {
+    max-width: 100%;
+    min-width: 0;
+  }
 }
 </style>
