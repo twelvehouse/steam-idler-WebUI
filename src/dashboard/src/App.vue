@@ -108,7 +108,16 @@
                 <template #item="{ element, index }">
                   <li class="list-group-item d-flex align-items-center">
                     <span class="drag-handle me-2" title="Drag to reorder" style="cursor:grab;">☰</span>
-                    <img v-if="getGameIcon(element)" :src="getGameIcon(element)" :alt="getGameName(element) + ' icon'" class="game-icon me-2" style="width:28px;height:28px;" />
+                    <span class="game-icon-wrapper me-2">
+                      <img
+                        v-if="getGameIcon(element)"
+                        :src="getGameIcon(element)"
+                        :alt="getGameName(element) + ' icon'"
+                        class="game-icon"
+                        style="width:28px;height:28px;"
+                      />
+                      <span v-else class="game-icon-dummy"></span>
+                    </span>
                     <span>{{ getGameName(element) || 'AppID: ' + element }}</span>
                     <span class="text-muted ms-2 small">(AppID: {{ element }})</span>
                     <button class="btn btn-sm btn-danger ms-auto" @click="removeIdlingGame(element)">✕</button>
@@ -145,6 +154,7 @@
                 >
                   <div class="game-desktop-icon-img">
                     <img v-if="game.img_icon_url" :src="game.img_icon_url" :alt="game.name + ' icon'" />
+                    <span v-else class="game-icon-dummy"></span>
                   </div>
                   <div class="game-desktop-title">{{ truncateTitle(game.name) }}</div>
                 </div>
@@ -909,8 +919,8 @@ nav.navbar {
   flex-direction: column;
 }
 .games-desktop-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(78px, 1fr));
   gap: 1.2rem 1.2rem;
   width: 100%;
   overflow-y: auto;
@@ -918,6 +928,8 @@ nav.navbar {
   align-content: flex-start;
   height: 100%;
   min-height: 0;
+  /* 横幅いっぱいに均等配置 */
+  justify-items: center;
 }
 .game-desktop-icon {
   display: flex;
@@ -932,8 +944,12 @@ nav.navbar {
   padding: 6px 2px 2px 2px;
 }
 .game-desktop-icon:hover:not(.disabled) {
-  background: #eaf4fb;
+  background: var(--game-desktop-hover-bg, #eaf4fb);
   box-shadow: 0 2px 8px rgba(51,154,240,0.08);
+}
+[data-bs-theme="dark"] .game-desktop-icon:hover:not(.disabled) {
+  --game-desktop-hover-bg: #27384a;
+  background: var(--game-desktop-hover-bg, #27384a);
 }
 .game-desktop-icon.disabled,
 .game-desktop-icon.text-muted {
@@ -943,7 +959,7 @@ nav.navbar {
 .game-desktop-icon-img {
   width: 48px;
   height: 48px;
-  background: #f3f3f3;
+  background: var(--game-icon-bg, #f3f3f3);
   border-radius: 8px;
   margin-bottom: 4px;
   display: flex;
@@ -951,13 +967,39 @@ nav.navbar {
   justify-content: center;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+  border: 1.5px solid var(--game-icon-border, #e0e0e0);
+  /* カラーテーマ対応 */
+}
+[data-bs-theme="dark"] .game-desktop-icon-img {
+  --game-icon-bg: #232c3a;
+  --game-icon-border: #3a4a5a;
 }
 .game-desktop-icon-img img {
   width: 44px;
   height: 44px;
   object-fit: contain;
   border-radius: 6px;
-  background: #fff;
+  background: transparent;
+}
+.game-icon-dummy {
+  width: 44px;
+  height: 44px;
+  display: inline-block;
+  border-radius: 6px;
+  background: var(--dummy-bg, #e0e0e0);
+  border: 1.5px dashed var(--dummy-border, #b0b0b0);
+  opacity: 0.7;
+}
+[data-bs-theme="dark"] .game-icon-dummy {
+  --dummy-bg: #2a3440;
+  --dummy-border: #4a5a6a;
+}
+.game-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
 }
 .custom-game-placeholder {
   width: 44px;
@@ -970,6 +1012,11 @@ nav.navbar {
   background: #eaf4fb;
   border-radius: 6px;
   border: 2px dashed #339af0;
+}
+[data-bs-theme="dark"] .custom-game-placeholder {
+  background: #232c3a;
+  border-color: #339af0;
+  color: #339af0;
 }
 .game-desktop-title {
   font-size: 0.92em;
@@ -1018,7 +1065,8 @@ nav.navbar {
   }
   .game-desktop-icon-img,
   .game-desktop-icon-img img,
-  .custom-game-placeholder {
+  .custom-game-placeholder,
+  .game-icon-dummy {
     width: 36px;
     height: 36px;
     font-size: 1.3em;
