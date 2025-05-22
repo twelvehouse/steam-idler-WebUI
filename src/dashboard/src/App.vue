@@ -244,7 +244,7 @@ import { useAccountStore } from '@/stores/accountStore';
 import api from '@/services/api';
 import draggable from 'vuedraggable';
 // 追加: ダミーアイコン画像のimport
-import dummyIcon from '@/assets/dummy-icon.png';
+import dummyIcon from '@/assets/dummy-icon.jpg';
 
 const accountStore = useAccountStore();
 const accounts = computed(() => accountStore.accounts.map(acc => ({ value: acc, text: acc })));
