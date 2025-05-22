@@ -572,12 +572,23 @@ nav.navbar {
   flex-wrap: nowrap;
   overflow: hidden;
   gap: 1.5rem;
+  /* 修正: 横スクロールを防ぐ */
+  width: 100%;
+  margin-right: 0;
 }
 .card-col {
   display: flex;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+  /* 修正: カードの横幅が親を超えないように */
+  max-width: 100%;
+}
+.col-md-7.card-col {
+  /* 修正: チャートカードの横幅が親を超えないように */
+  max-width: 100%;
+  flex-basis: 0;
+  flex-grow: 1;
 }
 .card-full {
   flex: 1 1 0;
@@ -586,6 +597,8 @@ nav.navbar {
   display: flex;
   flex-direction: column;
   margin-bottom: 0;
+  /* 修正: 横幅制限 */
+  max-width: 100%;
 }
 .card-body-full {
   flex: 1 1 0;
@@ -604,6 +617,8 @@ nav.navbar {
   margin: 0;
   padding: 0;
   position: relative;
+  width: 100%;
+  max-width: 100%;
 }
 .chart-bg {
   background: var(--bs-card-bg, #fff);
@@ -620,6 +635,7 @@ nav.navbar {
   border-radius: 0.5rem;
   position: relative;
   width: 100%;
+  max-width: 100%;
 }
 .apexcharts-canvas {
   position: absolute !important;
@@ -630,6 +646,7 @@ nav.navbar {
   min-width: 0 !important;
   background: transparent !important;
   z-index: 1;
+  max-width: 100% !important;
 }
 .card-title {
   margin-bottom: 1rem;
@@ -641,9 +658,14 @@ nav.navbar {
   .main-row {
     flex-direction: column;
     gap: 1rem;
+    width: 100%;
   }
   .card-col {
     min-height: 220px;
+    max-width: 100%;
+  }
+  .col-md-7.card-col {
+    max-width: 100%;
   }
 }
 @media (max-width: 767.98px) {
