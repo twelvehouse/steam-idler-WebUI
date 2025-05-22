@@ -443,14 +443,15 @@ const barChartOptions = computed(() => {
       background: chartBg,
       foreColor: labelColor,
       animations: { enabled: false },
-      fontFamily: 'inherit'
+      fontFamily: 'inherit',
+      parentHeightOffset: 0
     },
     theme: {
       mode: dark ? 'dark' : 'light'
     },
     plotOptions: {
       bar: {
-        barHeight: '100%',
+        barHeight: '80%',
         distributed: true,
         horizontal: true,
         dataLabels: {
@@ -488,7 +489,13 @@ const barChartOptions = computed(() => {
     grid: {
       borderColor: gridColor,
       xaxis: { lines: { show: false } },
-      yaxis: { lines: { show: false } }
+      yaxis: { lines: { show: false } },
+      padding: {
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0
+      }
     },
     xaxis: {
       categories: topGames.map(g => g.name),
@@ -631,13 +638,14 @@ nav.navbar {
   position: relative;
   width: 100%;
   max-width: 100%;
+  height: 100%;
 }
 .chart-bg {
   background: var(--bs-card-bg, #fff);
   transition: background 0.2s;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: stretch;
   min-height: 220px;
   height: 100%;
   min-width: 0;
@@ -650,8 +658,7 @@ nav.navbar {
   max-width: 100%;
 }
 .apexcharts-canvas {
-  position: absolute !important;
-  top: 0; left: 0;
+  position: relative !important;
   height: 100% !important;
   width: 100% !important;
   min-height: 0 !important;
@@ -659,6 +666,9 @@ nav.navbar {
   background: transparent !important;
   z-index: 1;
   max-width: 100% !important;
+  max-height: 100% !important;
+  aspect-ratio: unset !important;
+  display: block !important;
 }
 [data-bs-theme="dark"] .chart-bg {
   background: #222 !important;
