@@ -23,5 +23,21 @@ export default defineConfig({
         // rewrite: (path) => path.replace(/^\/api/, '/api') // Default rewrite is fine, but shown for clarity
       }
     }
+  },
+  build: {
+    chunkSizeWarningLimit: 1500, // 例: 1500kBまで警告を出さない
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            // 主要ライブラリごとに分割
+            if (id.includes('vue')) return 'vue-vendor';
+            if (id.includes('apexcharts')) return 'apexcharts-vendor';
+            if (id.includes('bootstrap')) return 'bootstrap-vendor';
+            return 'vendor';
+          }
+        }
+      }
+    }
   }
 })
