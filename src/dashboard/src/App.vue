@@ -452,6 +452,7 @@ const barChartOptions = computed(() => {
     plotOptions: {
       bar: {
         barHeight: '80%',
+        barWidth: '90%', // 横棒グラフの幅を最大化するためbarWidthを追加
         distributed: true,
         horizontal: true,
         dataLabels: {
