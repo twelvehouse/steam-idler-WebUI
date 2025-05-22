@@ -409,6 +409,26 @@ module.exports.start = async () => {
         }
     });
 
+    // 追加: Steamバナー画像URLを返すAPI
+    app.get("/api/steam/game_banner/:appid", (req, res) => {
+        const appid = req.params.appid;
+        if (!appid || isNaN(appid)) {
+            return res.status(400).json({ message: "Invalid appid." });
+        }
+        // Steamのバナー画像URL
+        const bannerUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}/library_600x900.jpg`;
+        // 画像の存在確認（HEADリクエスト）
+        https.get(bannerUrl, { method: "HEAD" }, (imgRes) => {
+            if (imgRes.statusCode === 200) {
+                res.json({ url: bannerUrl });
+            } else {
+                res.status(404).json({ message: "Banner not found." });
+            }
+        }).on("error", () => {
+            res.status(404).json({ message: "Banner not found." });
+        });
+    });
+
     app.listen(dashboardPort, "0.0.0.0", () => {
         logger("info", `Dashboard server listening on port ${dashboardPort}`);
     });

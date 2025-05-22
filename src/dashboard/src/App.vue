@@ -132,7 +132,6 @@
                   <div class="game-card-header">Custom Game</div>
                   <div class="game-card-title">{{ gameSearch.trim() }}</div>
                   <div class="game-card-appid">AppID: {{ gameSearch.trim() }}</div>
-                  <button class="btn btn-primary btn-sm mt-2 w-100" :disabled="isIdling(gameSearch.trim())">Add</button>
                 </div>
                 <!-- OwnedGamesグリッド -->
                 <div
@@ -144,13 +143,15 @@
                   :title="isIdling(game.appid) ? 'Already Idling' : 'Add to Idling'"
                 >
                   <div class="game-card-header">
-                    <img v-if="game.img_icon_url" :src="game.img_icon_url" :alt="game.name + ' icon'" class="game-icon" style="width:28px;height:28px;" />
+                    <img
+                      v-if="getGameBanner(game)"
+                      :src="getGameBanner(game)"
+                      :alt="game.name + ' banner'"
+                      class="game-banner"
+                    />
                   </div>
                   <div class="game-card-title">{{ game.name }}</div>
                   <div class="game-card-appid">AppID: {{ game.appid }}</div>
-                  <button class="btn btn-outline-primary btn-sm mt-2 w-100" :disabled="isIdling(game.appid)">
-                    {{ isIdling(game.appid) ? 'Already Idling' : 'Add' }}
-                  </button>
                 </div>
               </div>
             </div>
@@ -258,6 +259,43 @@ const customGames = ref([]); // 右カラム用
 const customGameName = ref('');
 const idlingList = ref([]);
 
+// バナー画像キャッシュ
+const bannerUrlCache = ref({});
+
+// バナー画像URL取得（キャッシュ付き）
+async function getGameBannerUrl(appid) {
+  if (!appid) return null;
+  if (bannerUrlCache.value[appid]) return bannerUrlCache.value[appid];
+  // まず既知のURLパターンで仮定
+  const url = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}/library_600x900.jpg`;
+  // HEADリクエストはCORSで失敗する場合があるのでAPI経由
+  try {
+    const res = await api.getGameBannerUrl(appid);
+    if (res.data && res.data.url) {
+      bannerUrlCache.value[appid] = res.data.url;
+      return res.data.url;
+    }
+  } catch {
+    bannerUrlCache.value[appid] = null;
+  }
+  return null;
+}
+
+// ゲームのバナー画像URLを返す（img_logo_urlがなければAPIで取得）
+function getGameBanner(game) {
+  if (game.img_logo_url) {
+    // 旧API互換: img_logo_urlがあればそれを使う
+    return game.img_logo_url.startsWith('http')
+      ? game.img_logo_url
+      : `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/library_600x900.jpg`;
+  }
+  // まだキャッシュにない場合はAPIで取得を試みる
+  if (bannerUrlCache.value[game.appid]) return bannerUrlCache.value[game.appid];
+  // 非同期取得（副作用だがUI更新のため）
+  getGameBannerUrl(game.appid);
+  return null;
+}
+
 // テーマ状態
 const theme = ref(getInitialTheme());
 const isDark = computed(() =>
@@ -318,17 +356,28 @@ const filteredOwnedGames = computed(() => {
 const isIdling = appid =>
   currentBot.value?.playedAppIDs?.includes(appid);
 
+// idlingListを常にcurrentBot.playedAppIDsと同期
+watch(
+  [editIdlingGames, () => currentBot.value?.playedAppIDs],
+  ([modalOpen, playedAppIDs]) => {
+    if (modalOpen && playedAppIDs) {
+      idlingList.value = [...playedAppIDs];
+    }
+  }
+);
+
+// ゲーム追加・削除時にもidlingListを即時更新
 async function addIdlingGame(appid) {
   if (!currentBot.value || isIdling(appid)) return;
   try {
     const configRes = await api.getGamesConfig();
     let playingGames = configRes.data.playingGames || {};
     if (!Array.isArray(playingGames[selectedAccount.value])) playingGames[selectedAccount.value] = [];
-    if (!playingGames[selectedAccount.value].includes(appid)) {
-      playingGames[selectedAccount.value].push(appid);
-      await api.updateGamesConfig({ playingGames });
-      await fetchBots();
-    }
+    playingGames[selectedAccount.value].push(appid);
+    await api.updateGamesConfig({ playingGames });
+    await fetchBots();
+    // 追加: 直後にidlingListも更新
+    idlingList.value = [...playingGames[selectedAccount.value]];
   } catch {}
 }
 
@@ -341,6 +390,8 @@ async function removeIdlingGame(appid) {
     playingGames[selectedAccount.value] = playingGames[selectedAccount.value].filter(id => id !== appid);
     await api.updateGamesConfig({ playingGames });
     await fetchBots();
+    // 追加: 直後にidlingListも更新
+    idlingList.value = [...playingGames[selectedAccount.value]];
   } catch {}
 }
 
@@ -517,16 +568,16 @@ const barChartOptions = computed(() => {
       custom: function({ series, seriesIndex, dataPointIndex, w }) {
         const game = topGames[dataPointIndex];
         if (!game) return '';
-        // アイコン画像優先、なければバナー画像
-        const img =
-          game.img_icon_url
-            ? `<img src="${game.img_icon_url}" alt="${game.name}" style="width:32px;height:32px;vertical-align:middle;margin-right:8px;border-radius:4px;">`
-            : game.img_logo_url
-              ? `<img src="${game.img_logo_url}" alt="${game.name}" style="width:64px;height:32px;vertical-align:middle;margin-right:8px;border-radius:4px;">`
-              : '';
+        // バナー画像優先
+        const bannerUrl =
+          game.img_logo_url
+            ? (game.img_logo_url.startsWith('http')
+                ? game.img_logo_url
+                : `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/library_600x900.jpg`)
+            : `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/library_600x900.jpg`;
         const hours = (game.playtime_forever / 60).toFixed(1);
         return `<div style="display:flex;align-items:center;gap:8px;">
-          ${img}
+          <img src="${bannerUrl}" alt="${game.name}" style="width:64px;height:48px;vertical-align:middle;margin-right:8px;border-radius:4px;">
           <div>
             <div style="font-weight:bold;">${game.name}</div>
             <div style="font-size:0.95em;">${hours}h</div>
@@ -565,6 +616,8 @@ async function addCustomGameFromGrid() {
     await api.updateGamesConfig({ playingGames });
     await fetchBots();
     gameSearch.value = '';
+    // 追加: 直後にidlingListも更新
+    idlingList.value = [...playingGames[selectedAccount.value]];
   } catch {}
 }
 
@@ -922,19 +975,24 @@ nav.navbar {
   font-weight: 600;
   margin-bottom: 0.25em;
   text-align: center;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.game-card-title {
-  font-size: 1em;
-  font-weight: 500;
+.game-banner {
+  width: 120px;
+  height: 45px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #eee;
   margin-bottom: 0.25em;
-  text-align: center;
-  word-break: break-all;
 }
-.game-card-appid {
-  font-size: 0.85em;
-  color: #888;
-  margin-bottom: 0.25em;
-  text-align: center;
+@media (max-width: 991.98px) {
+  .game-banner {
+    width: 90px;
+    height: 34px;
+  }
 }
 .custom-game-card {
   border: 2px dashed #339af0;

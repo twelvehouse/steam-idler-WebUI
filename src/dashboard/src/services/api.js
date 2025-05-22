@@ -57,6 +57,10 @@ const api = {
   },
   updateGamesConfig(data) {
     return axios.post('/api/config/games', data);
+  },
+  // 追加: バナー画像URL取得API
+  getGameBannerUrl(appid) {
+    return axios.get(`/api/steam/game_banner/${appid}`);
   }
 };
 
